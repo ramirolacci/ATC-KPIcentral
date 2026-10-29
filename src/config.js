@@ -8,13 +8,6 @@ export const INITIAL_SUPERVISORS = [
     badge: 'bg-sky-50 text-sky-700 border-sky-200 shadow-sm'
   },
   {
-    id: 'sup_wanda',
-    name: 'Wanda Ruiz',
-    title: 'Supervisora de Tiendas',
-    color: '#0d9488', // Teal
-    badge: 'bg-teal-50 text-teal-700 border-teal-200 shadow-sm'
-  },
-  {
     id: 'sup_evelyn',
     name: 'Evelyn Cedrón',
     title: 'Supervisora de Tiendas',
@@ -45,7 +38,13 @@ export const INITIAL_SUPERVISORS = [
 ];
 
 export const INITIAL_STORES = [
-  // Damaris Burgos
+  // Damaris Burgos (18 Franquicias)
+  { id: 't_tigre', name: 'Tigre', sup: 'sup_damaris' },
+  { id: 't_ituzaingo', name: 'Ituzaingó', sup: 'sup_damaris' },
+  { id: 't_mataderos', name: 'Mataderos', sup: 'sup_damaris' },
+  { id: 't_moreno', name: 'Moreno', sup: 'sup_damaris' },
+  { id: 't_paternal', name: 'Paternal', sup: 'sup_damaris' },
+  { id: 't_don_torcuato', name: 'Don Torcuato', sup: 'sup_damaris' },
   { id: 't_ballester', name: 'Ballester', sup: 'sup_damaris' },
   { id: 't_balvanera', name: 'Balvanera', sup: 'sup_damaris' },
   { id: 't_barrancas_belgrano', name: 'Barrancas de Belgrano', sup: 'sup_damaris' },
@@ -59,21 +58,13 @@ export const INITIAL_STORES = [
   { id: 't_puerto_madero', name: 'Puerto Madero', sup: 'sup_damaris' },
   { id: 't_villa_adelina', name: 'Villa Adelina', sup: 'sup_damaris' },
 
-  // Wanda Ruiz
-  { id: 't_campana', name: 'Campana', sup: 'sup_wanda' },
-  { id: 't_don_torcuato', name: 'Don Torcuato', sup: 'sup_wanda' },
-  { id: 't_general_pacheco', name: 'General Pacheco', sup: 'sup_wanda' },
-  { id: 't_ituzaingo', name: 'Ituzaingó', sup: 'sup_wanda' },
-  { id: 't_los_polvorines', name: 'Los Polvorines', sup: 'sup_wanda' },
-  { id: 't_maschwitz', name: 'Ingeniero Maschwitz', sup: 'sup_wanda' },
-  { id: 't_mataderos', name: 'Mataderos', sup: 'sup_wanda' },
-  { id: 't_merlo', name: 'Merlo', sup: 'sup_wanda' },
-  { id: 't_moreno', name: 'Moreno', sup: 'sup_wanda' },
-  { id: 't_paternal', name: 'Paternal', sup: 'sup_wanda' },
-  { id: 't_tigre', name: 'Tigre', sup: 'sup_wanda' },
-  { id: 't_villa_urquiza', name: 'Villa Urquiza', sup: 'sup_wanda' },
-
-  // Evelyn Cedrón
+  // Evelyn Cedrón (18 Franquicias)
+  { id: 't_merlo', name: 'Merlo', sup: 'sup_evelyn' },
+  { id: 't_campana', name: 'Campana', sup: 'sup_evelyn' },
+  { id: 't_maschwitz', name: 'Ingeniero Maschwitz', sup: 'sup_evelyn' },
+  { id: 't_general_pacheco', name: 'General Pacheco', sup: 'sup_evelyn' },
+  { id: 't_los_polvorines', name: 'Los Polvorines', sup: 'sup_evelyn' },
+  { id: 't_villa_urquiza', name: 'Villa Urquiza', sup: 'sup_evelyn' },
   { id: 't_bella_vista', name: 'Bella Vista', sup: 'sup_evelyn' },
   { id: 't_devoto', name: 'Devoto', sup: 'sup_evelyn' },
   { id: 't_escobar', name: 'Escobar', sup: 'sup_evelyn' },
@@ -101,13 +92,13 @@ export const INITIAL_THRESHOLDS = {
 };
 
 export const CHANNELS = [
-  { id: 'PedidosYa', label: 'PedidosYa', badgeBg: 'bg-rose-50 text-rose-600 border-rose-200' },
+  { id: 'PEYA', label: 'PEYA', badgeBg: 'bg-rose-50 text-rose-600 border-rose-200' },
   { id: 'Rappi', label: 'Rappi', badgeBg: 'bg-orange-50 text-orange-600 border-orange-200' },
   { id: 'Mercado Delivery', label: 'Mercado Delivery', badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
 ];
 
 export const REVIEW_CHANNELS = [
-  { id: 'PedidosYa', label: 'PedidosYa', color: '#e11d48' },
+  { id: 'PEYA', label: 'PEYA', color: '#e11d48' },
   { id: 'Rappi', label: 'Rappi', color: '#ea580c' },
   { id: 'Mercado Delivery', label: 'Mercado Delivery', color: '#f59e0b' },
   { id: 'TePido', label: 'TePido', color: '#9333ea' },
@@ -118,6 +109,10 @@ export const CANAL_THEMES = {
   ALL: {
     active: 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/25 font-bold',
     inactive: 'text-slate-400 hover:text-amber-300 hover:bg-slate-800/40 font-medium'
+  },
+  PEYA: {
+    active: 'bg-gradient-to-r from-red-600 to-red-500 text-white shadow-md shadow-red-600/35 border border-red-400/40 font-bold',
+    inactive: 'text-slate-400 hover:text-red-400 hover:bg-red-500/10 font-medium'
   },
   PedidosYa: {
     active: 'bg-gradient-to-r from-red-600 to-red-500 text-white shadow-md shadow-red-600/35 border border-red-400/40 font-bold',

@@ -32,7 +32,7 @@ export function Header({
           <div className="relative group">
             <div className="absolute -inset-1 rounded-xl bg-amber-500/20 blur-md opacity-40 group-hover:opacity-75 transition duration-500" />
             <img
-              src="/Logo_Mi_Gusto_2025.png"
+              src={`${import.meta.env.BASE_URL}Logo_Mi_Gusto_2025.png`}
               alt="Mi Gusto"
               className="relative h-8 sm:h-9 w-auto object-contain brightness-110 drop-shadow-[0_2px_12px_rgba(245,158,11,0.25)]"
             />
@@ -49,7 +49,7 @@ export function Header({
               </span>
             </div>
             <p className="text-[11px] text-slate-400 hidden sm:block font-medium">
-              Monitoreo operativo de PedidosYa, Rappi, MDL y Reseñas
+              Monitoreo operativo de PEYA, Rappi, MDL y Reseñas
             </p>
           </div>
         </div>

@@ -10,7 +10,8 @@ export function CustomSelect({
   className = '',
   dropdownClassName = '',
   wrapperClassName = '',
-  icon: Icon
+  icon: Icon,
+  multiple = false
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -29,10 +30,16 @@ export function CustomSelect({
     };
   });
 
-  const selectedOption = normalizedOptions.find((opt) => opt.value === value) || {
-    value,
-    label: value || placeholder
-  };
+  const selectedValues = multiple
+    ? (Array.isArray(value) ? value : (value ? [value] : []))
+    : [];
+
+  const selectedOption = !multiple
+    ? (normalizedOptions.find((opt) => opt.value === value) || {
+        value,
+        label: value || placeholder
+      })
+    : null;
 
   // Close on outside click
   useEffect(() => {
@@ -70,8 +77,45 @@ export function CustomSelect({
   }, [isOpen]);
 
   const handleSelect = (val) => {
-    onChange(val);
-    setIsOpen(false);
+    if (multiple) {
+      const exists = selectedValues.includes(val);
+      let next;
+      if (exists) {
+        next = selectedValues.filter((v) => v !== val);
+      } else {
+        next = [...selectedValues, val];
+      }
+      onChange(next);
+    } else {
+      onChange(val);
+      setIsOpen(false);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedValues.length === normalizedOptions.length) {
+      onChange([]);
+    } else {
+      onChange(normalizedOptions.map((o) => o.value));
+    }
+  };
+
+  // Label text for trigger button
+  const getTriggerLabel = () => {
+    if (!multiple) {
+      return selectedOption.label;
+    }
+    if (selectedValues.length === 0) {
+      return placeholder;
+    }
+    if (selectedValues.length === 1) {
+      const found = normalizedOptions.find((o) => o.value === selectedValues[0]);
+      return found ? found.label : selectedValues[0];
+    }
+    if (selectedValues.length === normalizedOptions.length) {
+      return `Todos (${selectedValues.length} seleccionados)`;
+    }
+    return `${selectedValues.length} períodos seleccionados`;
   };
 
   return (
@@ -84,13 +128,18 @@ export function CustomSelect({
       >
         <div className="flex items-center gap-2 truncate">
           {Icon && <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-          {selectedOption.color && (
+          {!multiple && selectedOption?.color && (
             <span
               className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
               style={{ backgroundColor: selectedOption.color }}
             />
           )}
-          <span className="truncate">{selectedOption.label}</span>
+          {multiple && selectedValues.length > 1 && (
+            <span className="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0 border border-amber-500/30">
+              {selectedValues.length}
+            </span>
+          )}
+          <span className="truncate">{getTriggerLabel()}</span>
         </div>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
@@ -105,8 +154,26 @@ export function CustomSelect({
           ref={menuRef}
           className={`absolute left-0 mt-1.5 min-w-full w-full max-h-72 overflow-y-auto no-scrollbar z-50 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black p-1.5 space-y-1 font-sans ring-1 ring-white/10 ${dropdownClassName}`}
         >
+          {multiple && normalizedOptions.length > 1 && (
+            <div className="flex items-center justify-between px-2.5 py-1.5 pb-2 mb-1 border-b border-slate-800/80 text-[11px]">
+              <span className="text-slate-400 font-medium">
+                {selectedValues.length} de {normalizedOptions.length}
+              </span>
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="text-amber-400 hover:text-amber-300 font-semibold cursor-pointer transition-colors"
+              >
+                {selectedValues.length === normalizedOptions.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+              </button>
+            </div>
+          )}
+
           {normalizedOptions.map((opt) => {
-            const isSelected = opt.value === value;
+            const isSelected = multiple
+              ? selectedValues.includes(opt.value)
+              : opt.value === value;
+
             return (
               <button
                 key={opt.value}
@@ -119,6 +186,16 @@ export function CustomSelect({
                 }`}
               >
                 <div className="flex items-center gap-2.5 truncate">
+                  {multiple && (
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                      isSelected
+                        ? 'bg-amber-500 border-amber-400 text-slate-950'
+                        : 'border-slate-600 bg-slate-950/60'
+                    }`}>
+                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
+                  )}
+
                   {opt.color ? (
                     <span
                       className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
@@ -134,7 +211,7 @@ export function CustomSelect({
                     )}
                   </div>
                 </div>
-                {isSelected && (
+                {!multiple && isSelected && (
                   <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-2" />
                 )}
               </button>

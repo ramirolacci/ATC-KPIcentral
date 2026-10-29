@@ -10,7 +10,7 @@ import { ThresholdsModal } from './components/ThresholdsModal';
 import { INITIAL_SUPERVISORS, INITIAL_STORES, INITIAL_THRESHOLDS } from './config';
 import preloadedData from './preloadedData.json';
 
-const LS_DATA_KEY = 'mg_kpi_central_data_v3';
+const LS_DATA_KEY = 'mg_kpi_central_data_v4';
 const LS_THRESHOLDS_KEY = 'mg_kpi_thresholds_v3';
 
 export default function App() {
@@ -42,11 +42,14 @@ export default function App() {
     return preloadedData;
   });
 
-  // Selected period for operational module
+  // Selected periods for operational module (supports multi-selection for comparisons)
   const availablePeriods = Object.keys(datasets);
-  const [selectedPeriod, setSelectedPeriod] = useState(
-    availablePeriods[availablePeriods.length - 1] || '5 al 12 de octubre'
-  );
+  const [selectedPeriods, setSelectedPeriods] = useState(() => {
+    return availablePeriods.length > 0 ? [availablePeriods[availablePeriods.length - 1]] : ['5 al 12 de octubre'];
+  });
+
+  // Backward compatibility: first selected period or empty
+  const selectedPeriod = selectedPeriods[0] || '';
 
   // Semaphore thresholds
   const [thresholds, setThresholds] = useState(() => {
@@ -59,16 +62,53 @@ export default function App() {
     return INITIAL_THRESHOLDS;
   });
 
+  // Stores assignment state with LocalStorage persistence
+  const LS_STORES_KEY = 'mg_kpi_stores_assignment_v2';
+  const [stores, setStores] = useState(() => {
+    const saved = localStorage.getItem(LS_STORES_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_STORES;
+  });
+
+  const handleReassignStore = (storeName, newSupId) => {
+    setStores((prevStores) => {
+      const lowerName = storeName.toLowerCase().trim();
+      const exists = prevStores.some((s) => s.name.toLowerCase().trim() === lowerName);
+      let updated;
+      if (exists) {
+        updated = prevStores.map((s) =>
+          s.name.toLowerCase().trim() === lowerName ? { ...s, sup: newSupId } : s
+        );
+      } else {
+        updated = [...prevStores, { id: `t_${lowerName.replace(/\s+/g, '_')}`, name: storeName, sup: newSupId }];
+      }
+      localStorage.setItem(LS_STORES_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Modals state
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isThresholdsOpen, setIsThresholdsOpen] = useState(false);
 
-  // Update selectedPeriod if availablePeriods change
+  // Update selectedPeriods if availablePeriods change or selections become invalid
   useEffect(() => {
-    if (!datasets[selectedPeriod] && availablePeriods.length > 0) {
-      setSelectedPeriod(availablePeriods[availablePeriods.length - 1]);
+    if (availablePeriods.length === 0) {
+      if (selectedPeriods.length > 0) setSelectedPeriods([]);
+      return;
     }
-  }, [datasets, selectedPeriod, availablePeriods]);
+    const valid = selectedPeriods.filter((p) => availablePeriods.includes(p));
+    if (valid.length === 0) {
+      setSelectedPeriods([availablePeriods[availablePeriods.length - 1]]);
+    } else if (valid.length !== selectedPeriods.length) {
+      setSelectedPeriods(valid);
+    }
+  }, [datasets, availablePeriods]);
 
   const handleImportSuccess = (newParsedData) => {
     const merged = { ...datasets, ...newParsedData };
@@ -78,7 +118,7 @@ export default function App() {
     // Select the first new sheet
     const newKeys = Object.keys(newParsedData);
     if (newKeys.length > 0) {
-      setSelectedPeriod(newKeys[newKeys.length - 1]);
+      setSelectedPeriods([newKeys[newKeys.length - 1]]);
     }
 
     try {
@@ -95,6 +135,58 @@ export default function App() {
     localStorage.setItem(LS_THRESHOLDS_KEY, JSON.stringify(newThresholds));
   };
 
+  // Delete an entire period/week dataset
+  const handleDeletePeriod = (periodToDelete) => {
+    const next = { ...datasets };
+    delete next[periodToDelete];
+    setDatasets(next);
+    localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
+
+    const remaining = Object.keys(next);
+    if (remaining.length > 0) {
+      setSelectedPeriods((prev) => {
+        const filtered = prev.filter((p) => p !== periodToDelete);
+        return filtered.length > 0 ? filtered : [remaining[remaining.length - 1]];
+      });
+    } else {
+      setSelectedPeriods([]);
+    }
+  };
+
+  // Delete a specific store record inside the active period
+  const handleDeleteRecord = (period, recordIndex) => {
+    if (!datasets[period] || !datasets[period].records) return;
+    const currentRecords = [...datasets[period].records];
+    currentRecords.splice(recordIndex, 1);
+
+    const next = {
+      ...datasets,
+      [period]: {
+        ...datasets[period],
+        records: currentRecords
+      }
+    };
+    setDatasets(next);
+    localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
+  };
+
+  // Delete multiple store records inside the active period
+  const handleDeleteRecords = (period, recordIndexes) => {
+    if (!datasets[period] || !datasets[period].records || !recordIndexes || recordIndexes.length === 0) return;
+    const indexSet = new Set(recordIndexes);
+    const currentRecords = datasets[period].records.filter((_, idx) => !indexSet.has(idx));
+
+    const next = {
+      ...datasets,
+      [period]: {
+        ...datasets[period],
+        records: currentRecords
+      }
+    };
+    setDatasets(next);
+    localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
+  };
+
   return (
     <div className="min-h-screen flex flex-col justify-between">
       <div>
@@ -109,18 +201,31 @@ export default function App() {
         <main ref={mainContentRef} className="w-full px-4 sm:px-8 py-2">
           {activeModule === 'operational' ? (
             <OperationalDashboard
+              datasets={datasets}
               periodData={datasets[selectedPeriod]}
               selectedPeriod={selectedPeriod}
-              onPeriodChange={setSelectedPeriod}
+              selectedPeriods={selectedPeriods}
+              onPeriodsChange={setSelectedPeriods}
+              onPeriodChange={(val) => {
+                if (Array.isArray(val)) {
+                  setSelectedPeriods(val);
+                } else {
+                  setSelectedPeriods(val ? [val] : []);
+                }
+              }}
+              onDeletePeriod={handleDeletePeriod}
+              onDeleteRecord={handleDeleteRecord}
+              onDeleteRecords={handleDeleteRecords}
               availablePeriods={availablePeriods}
               supervisors={INITIAL_SUPERVISORS}
-              stores={INITIAL_STORES}
+              stores={stores}
+              onReassignStore={handleReassignStore}
               thresholds={thresholds}
             />
           ) : (
             <ReviewsDashboard
               supervisors={INITIAL_SUPERVISORS}
-              stores={INITIAL_STORES}
+              stores={stores}
             />
           )}
         </main>

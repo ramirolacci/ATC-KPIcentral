@@ -68,7 +68,7 @@ export function ImportModal({ isOpen, onClose, onImportSuccess }) {
 
       <p className="text-xs text-slate-400 leading-relaxed">
         Carga un nuevo archivo Excel periódicamente (.xlsx o .xls). El sistema detectará automáticamente
-        las pestañas semanales o mensuales, unificará los nombres de sucursales y actualizará los indicadores de PedidosYa, Rappi y Mercado Delivery.
+        las pestañas semanales o mensuales, unificará los nombres de sucursales y actualizará los indicadores de PEYA, Rappi y Mercado Delivery.
       </p>
 
       {/* Upload box */}

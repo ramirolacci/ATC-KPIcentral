@@ -57,7 +57,7 @@ export async function exportOperationalKPItoPDF({
   const margin = 36; // 0.5 inch
 
   // 1. Try to load logo
-  const logoInfo = await getBase64ImageFromUrl('/Logo_Mi_Gusto_2025.png');
+  const logoInfo = await getBase64ImageFromUrl(`${import.meta.env.BASE_URL}Logo_Mi_Gusto_2025.png`);
 
   // Top header background banner
   doc.setFillColor(15, 23, 42); // slate-900
@@ -86,7 +86,7 @@ export async function exportOperationalKPItoPDF({
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(148, 163, 184); // slate-400
-  doc.text('Monitoreo de Calidad y Rendimiento Operativo (PedidosYa, Rappi, Mercado Delivery)', titleX, 52);
+  doc.text('Monitoreo de Calidad y Rendimiento Operativo (PEYA, Rappi, Mercado Delivery)', titleX, 52);
 
   // Generation timestamp on top right
   const now = new Date();
@@ -229,7 +229,7 @@ export async function exportOperationalKPItoPDF({
 
         // Canal badge color
         if (data.column.index === 0) {
-          if (rawRecord.canal === 'PedidosYa') {
+          if (rawRecord.canal === 'PEYA' || rawRecord.canal === 'PedidosYa') {
             data.cell.styles.textColor = [225, 29, 72]; // rose-600
           } else if (rawRecord.canal === 'Rappi') {
             data.cell.styles.textColor = [234, 88, 12]; // orange-600
@@ -290,3 +290,329 @@ export async function exportOperationalKPItoPDF({
 
   doc.save(fileName);
 }
+
+/**
+ * Exports a high-impact, executive multi-period comparison report to PDF.
+ * Perfect for presentations ("bonito para presentar").
+ */
+export async function exportOperationalComparisonPDF({
+  periodSummaries = [], // [{ period, totalOrders, cancPct, recPct, recCosto, demPct, dispAvg, criticCount, storeCount }]
+  storeComparisons = [], // [{ tienda, canal, supName, periods: { [period]: { orders, cancPct, recPct, recCosto, demPct, dispAvg } } }]
+  selectedPeriods = [],
+  selectedCanal = 'ALL',
+  selectedSup = 'ALL',
+  supervisorMap = {},
+  thresholds = {}
+}) {
+  if (!periodSummaries || periodSummaries.length === 0) {
+    alert('No hay períodos para comparar.');
+    return;
+  }
+
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'pt',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 36;
+
+  // 1. Try to load logo
+  const logoInfo = await getBase64ImageFromUrl(`${import.meta.env.BASE_URL}Logo_Mi_Gusto_2025.png`);
+
+  // Top header background banner
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, pageWidth, 74, 'F');
+
+  // Gold accent bottom line
+  doc.setFillColor(245, 158, 11); // amber-500
+  doc.rect(0, 72, pageWidth, 2.5, 'F');
+
+  // Logo or title positioning
+  let titleX = margin;
+  if (logoInfo?.dataURL) {
+    const logoRatio = logoInfo.width / logoInfo.height;
+    const targetHeight = 36;
+    const targetWidth = targetHeight * logoRatio;
+    doc.addImage(logoInfo.dataURL, 'PNG', margin, 18, targetWidth, targetHeight);
+    titleX = margin + targetWidth + 16;
+  }
+
+  // Document Title & Tagline
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Informe Comparativo de Períodos - KPI Central', titleX, 35);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Análisis evolutivo entre ${selectedPeriods.length} períodos operativos (${selectedPeriods.join(' vs ')})`, titleX, 51);
+
+  // Generation timestamp on top right
+  const now = new Date();
+  const formattedDate = now.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  const formattedTime = now.toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(245, 158, 11);
+  doc.text(`Presentación Ejecutiva: ${formattedDate} ${formattedTime} hs`, pageWidth - margin, 32, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Períodos analizados: ${selectedPeriods.length}`, pageWidth - margin, 46, { align: 'right' });
+
+  // 2. Filter Summary Info Strip
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(margin, 84, pageWidth - (margin * 2), 34, 4, 4, 'FD');
+
+  const canalLabel = selectedCanal === 'ALL' ? 'Todos los Canales' : selectedCanal;
+  const supLabel = selectedSup === 'ALL' ? 'Todas las Supervisoras' : (supervisorMap[selectedSup]?.name || selectedSup);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(30, 41, 59);
+
+  doc.text('CANAL FILTRADO:', margin + 14, 105);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
+  doc.text(canalLabel, margin + 98, 105);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 41, 59);
+  doc.text('SUPERVISORA:', margin + 220, 105);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
+  doc.text(supLabel, margin + 295, 105);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(245, 158, 11);
+  doc.text(`${selectedPeriods.length} Períodos comparados`, pageWidth - margin - 14, 105, { align: 'right' });
+
+  // 3. Table 1: Macro Comparison by Period (Executive Summary)
+  const summaryHeaders = [
+    'PERÍODO',
+    'SUCURSALES',
+    'TOTAL ÓRDENES',
+    'CANC. %',
+    'RECLAMOS %',
+    'COSTO RECLAMOS ($)',
+    'DEMORAS %',
+    'DISPONIBILIDAD %',
+    'REGISTROS CRÍTICOS'
+  ];
+
+  const summaryRows = periodSummaries.map((p) => {
+    return [
+      p.period,
+      String(p.storeCount || 0),
+      (p.totalOrders || 0).toLocaleString('es-AR'),
+      `${Number(p.cancPct || 0).toFixed(2)}%`,
+      `${Number(p.recPct || 0).toFixed(2)}%`,
+      `$ ${Math.round(p.recCosto || 0).toLocaleString('es-AR')}`,
+      `${Number(p.demPct || 0).toFixed(2)}%`,
+      `${Number(p.dispAvg || 0).toFixed(2)}%`,
+      String(p.criticCount || 0)
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 126,
+    head: [summaryHeaders],
+    body: summaryRows,
+    theme: 'grid',
+    margin: { left: margin, right: margin },
+    styles: {
+      font: 'helvetica',
+      fontSize: 8.5,
+      cellPadding: 5,
+      textColor: [30, 41, 59],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5
+    },
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: 6
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 150 },
+      1: { halign: 'center', cellWidth: 70 },
+      2: { halign: 'right', fontStyle: 'bold', cellWidth: 85 },
+      3: { halign: 'right', cellWidth: 65 },
+      4: { halign: 'right', cellWidth: 70 },
+      5: { halign: 'right', cellWidth: 110, fontStyle: 'bold' },
+      6: { halign: 'right', cellWidth: 70 },
+      7: { halign: 'right', cellWidth: 85 },
+      8: { halign: 'center', cellWidth: 65, fontStyle: 'bold' }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'head' && data.column.index >= 1) {
+        if (data.column.index === 1 || data.column.index === 8) {
+          data.cell.styles.halign = 'center';
+        } else {
+          data.cell.styles.halign = 'right';
+        }
+      }
+      if (data.section === 'body') {
+        const item = periodSummaries[data.row.index];
+        if (!item) return;
+
+        if (thresholds) {
+          if (data.column.index === 3 && getMetricStatus('cancelacionesPct', item.cancPct, thresholds) === 'danger') {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (data.column.index === 4 && getMetricStatus('reclamosPct', item.recPct, thresholds) === 'danger') {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (data.column.index === 6 && getMetricStatus('demorasPct', item.demPct, thresholds) === 'danger') {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (data.column.index === 7 && getMetricStatus('disponibilidad', item.dispAvg, thresholds) === 'danger') {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (data.column.index === 8 && item.criticCount > 0) {
+            data.cell.styles.textColor = [225, 29, 72];
+          }
+        }
+      }
+    }
+  });
+
+  // 4. Section 2: Store Detailed Progression
+  let nextY = doc.lastAutoTable.finalY + 18;
+
+  if (storeComparisons.length > 0) {
+    if (nextY > pageHeight - 120) {
+      doc.addPage();
+      nextY = 40;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Evolución Detallada por Sucursal y Canal', margin, nextY);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Comparación de Órdenes, % Cancelaciones, % Reclamos y Disponibilidad por período seleccionado', margin, nextY + 12);
+
+    // Build headers dynamically based on selected periods (up to 3-4 periods per table row cleanly)
+    const storeHeaders = ['CANAL', 'SUCURSAL', 'SUPERVISORA'];
+    selectedPeriods.forEach((p) => {
+      storeHeaders.push(`${p.slice(0, 16)}\nÓRD.`);
+      storeHeaders.push(`${p.slice(0, 16)}\nRECL.%`);
+      storeHeaders.push(`${p.slice(0, 16)}\nDISP.%`);
+    });
+
+    const storeRows = storeComparisons.map((sc) => {
+      const row = [sc.canal, sc.tienda, sc.supName];
+      selectedPeriods.forEach((p) => {
+        const pData = sc.periods[p];
+        if (pData) {
+          row.push((pData.orders || 0).toLocaleString('es-AR'));
+          row.push(`${Number(pData.recPct || 0).toFixed(1)}%`);
+          row.push(`${Number(pData.dispAvg || 0).toFixed(1)}%`);
+        } else {
+          row.push('-');
+          row.push('-');
+          row.push('-');
+        }
+      });
+      return row;
+    });
+
+    autoTable(doc, {
+      startY: nextY + 20,
+      head: [storeHeaders],
+      body: storeRows,
+      theme: 'grid',
+      margin: { left: margin, right: margin, bottom: 40 },
+      styles: {
+        font: 'helvetica',
+        fontSize: 7.5,
+        cellPadding: 3.5,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.5
+      },
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7,
+        halign: 'center',
+        cellPadding: 4.5
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { cellWidth: 55, fontStyle: 'bold' },
+        1: { cellWidth: 95, fontStyle: 'bold' },
+        2: { cellWidth: 85 }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index >= 3) {
+          data.cell.styles.halign = 'right';
+        }
+        if (data.section === 'body' && data.column.index === 0) {
+          const val = data.cell.raw;
+          if (val === 'PEYA' || val === 'PedidosYa') {
+            data.cell.styles.textColor = [225, 29, 72];
+          } else if (val === 'Rappi') {
+            data.cell.styles.textColor = [234, 88, 12];
+          } else if (val === 'Mercado Delivery') {
+            data.cell.styles.textColor = [16, 149, 106];
+          }
+        }
+      },
+      didDrawPage: () => {
+        // Footer divider line
+        doc.setDrawColor(226, 232, 240);
+        doc.line(margin, pageHeight - 26, pageWidth - margin, pageHeight - 26);
+
+        // Left footer
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          'Mi Gusto - Departamento de Sistemas | Monitoreo Operativo ATC - Informe Comparativo',
+          margin,
+          pageHeight - 14
+        );
+      }
+    });
+  }
+
+  // Final numbering of pages
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 14, { align: 'right' });
+  }
+
+  const fileName = `Reporte_Comparativo_KPI_${selectedPeriods.length}_Periodos.pdf`;
+  doc.save(fileName);
+}
+
