@@ -829,9 +829,6 @@ export function OperationalDashboard({
                   <div className="text-sm sm:text-base font-black text-orange-300 font-mono-numbers leading-tight">
                     {fmtInt(kpiSummary.totalDem || 0)} <span className="text-xs font-semibold text-slate-400">dem.</span>
                   </div>
-                  <div className="text-xs sm:text-sm font-black text-orange-400 font-mono-numbers mt-0.5">
-                    {fmtCurrency(kpiSummary.demCosto || 0)}
-                  </div>
                 </div>
               </div>
               <div className="mt-2.5 font-sans">
