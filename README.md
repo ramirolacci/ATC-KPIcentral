@@ -19,19 +19,6 @@
 
 ---
 
-## 📌 Descripción del Repositorio (GitHub About)
-
-> *Plataforma integral de analítica y monitoreo operativo para Mi Gusto. Centraliza métricas de PedidosYa, Rappi, Mercado Delivery y reseñas multi-canal con semaforización en tiempo real, gestión de sucursales por supervisora, control de reclamos, análisis gráfico e importación de reportes.*
-> 
-> *(Longitud exacta: 288 caracteres)*
-
-### 🏷️ Topics Recomendados para GitHub
-```text
-kpi-dashboard, react, vite, tailwindcss, gsap, operations-management, business-intelligence, food-delivery, analytics, pedidosya, rappi, quality-assurance, metrics-dashboard, recharts
-```
-
----
-
 ## 📸 Galería del Sistema
 
 <div align="center">
