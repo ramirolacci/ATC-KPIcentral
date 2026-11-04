@@ -7,15 +7,37 @@ import { OperationalDashboard } from './components/OperationalDashboard';
 import { ReviewsDashboard } from './components/ReviewsDashboard';
 import { ImportModal } from './components/ImportModal';
 import { ThresholdsModal } from './components/ThresholdsModal';
+import { LoginScreen } from './components/LoginScreen';
 import { INITIAL_SUPERVISORS, INITIAL_STORES, INITIAL_THRESHOLDS } from './config';
 import preloadedData from './preloadedData.json';
 
 const LS_DATA_KEY = 'mg_kpi_central_data_v4';
 const LS_THRESHOLDS_KEY = 'mg_kpi_thresholds_v3';
+const LS_AUTH_KEY = 'mg_kpi_user_auth_v1';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem(LS_AUTH_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return null;
+  });
+
   const [activeModule, setActiveModule] = useState('operational'); // 'operational' | 'reviews'
   const mainContentRef = useRef(null);
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    localStorage.setItem(LS_AUTH_KEY, JSON.stringify(user));
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem(LS_AUTH_KEY);
+  };
 
   useGSAP(
     () => {
@@ -27,7 +49,7 @@ export default function App() {
         );
       }
     },
-    { dependencies: [activeModule] }
+    { dependencies: [activeModule, currentUser] }
   );
 
   // Datasets loaded from preloaded JSON or LocalStorage
@@ -76,6 +98,7 @@ export default function App() {
   });
 
   const handleReassignStore = (storeName, newSupId) => {
+    if (currentUser?.role === 'guest') return;
     setStores((prevStores) => {
       const lowerName = storeName.toLowerCase().trim();
       const exists = prevStores.some((s) => s.name.toLowerCase().trim() === lowerName);
@@ -111,6 +134,7 @@ export default function App() {
   }, [datasets, availablePeriods]);
 
   const handleImportSuccess = (newParsedData) => {
+    if (currentUser?.role === 'guest') return;
     const merged = { ...datasets, ...newParsedData };
     setDatasets(merged);
     localStorage.setItem(LS_DATA_KEY, JSON.stringify(merged));
@@ -131,12 +155,14 @@ export default function App() {
   };
 
   const handleSaveThresholds = (newThresholds) => {
+    if (currentUser?.role === 'guest') return;
     setThresholds(newThresholds);
     localStorage.setItem(LS_THRESHOLDS_KEY, JSON.stringify(newThresholds));
   };
 
   // Delete an entire period/week dataset
   const handleDeletePeriod = (periodToDelete) => {
+    if (currentUser?.role === 'guest') return;
     const next = { ...datasets };
     delete next[periodToDelete];
     setDatasets(next);
@@ -155,6 +181,7 @@ export default function App() {
 
   // Delete a specific store record inside the active period
   const handleDeleteRecord = (period, recordIndex) => {
+    if (currentUser?.role === 'guest') return;
     if (!datasets[period] || !datasets[period].records) return;
     const currentRecords = [...datasets[period].records];
     currentRecords.splice(recordIndex, 1);
@@ -172,6 +199,7 @@ export default function App() {
 
   // Delete multiple store records inside the active period
   const handleDeleteRecords = (period, recordIndexes) => {
+    if (currentUser?.role === 'guest') return;
     if (!datasets[period] || !datasets[period].records || !recordIndexes || recordIndexes.length === 0) return;
     const indexSet = new Set(recordIndexes);
     const currentRecords = datasets[period].records.filter((_, idx) => !indexSet.has(idx));
@@ -187,6 +215,11 @@ export default function App() {
     localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
   };
 
+  // If user is not logged in, show elegant LoginScreen
+  if (!currentUser) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col justify-between">
       <div>
@@ -196,6 +229,8 @@ export default function App() {
           onOpenImport={() => setIsImportOpen(true)}
           onOpenThresholds={() => setIsThresholdsOpen(true)}
           periodCount={availablePeriods.length}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         <main ref={mainContentRef} className="w-full px-4 sm:px-8 py-2">
@@ -221,11 +256,13 @@ export default function App() {
               stores={stores}
               onReassignStore={handleReassignStore}
               thresholds={thresholds}
+              currentUser={currentUser}
             />
           ) : (
             <ReviewsDashboard
               supervisors={INITIAL_SUPERVISORS}
               stores={stores}
+              currentUser={currentUser}
             />
           )}
         </main>

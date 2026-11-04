@@ -12,6 +12,7 @@ import { AnimatedCounter } from './AnimatedCounter';
 import { CustomSelect } from './CustomSelect';
 import { ModalWrapper } from './ModalWrapper';
 import { exportOperationalKPItoPDF, exportOperationalComparisonPDF } from '../utils/pdfExport';
+import { OperationalCharts } from './OperationalCharts';
 
 export function OperationalDashboard({
   datasets = {},
@@ -27,8 +28,10 @@ export function OperationalDashboard({
   supervisors,
   stores,
   onReassignStore,
-  thresholds
+  thresholds,
+  currentUser
 }) {
+  const isGuest = currentUser?.role === 'guest';
   // Drag and Drop State for store reassignment across supervisors
   const [draggedStore, setDraggedStore] = useState(null);
   const [dragOverSupId, setDragOverSupId] = useState(null);
@@ -588,7 +591,7 @@ export function OperationalDashboard({
                   placeholder="Seleccionar períodos..."
                   className="w-52 sm:w-64"
                 />
-                {onDeletePeriod && availablePeriods.length > 1 && !isMultiPeriod && (
+                {!isGuest && onDeletePeriod && availablePeriods.length > 1 && !isMultiPeriod && (
                   <button
                     type="button"
                     onClick={() => setPeriodToDelete(activePeriods[0] || selectedPeriod)}
@@ -891,7 +894,7 @@ export function OperationalDashboard({
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/40'
             }`}
           >
-            Detalle por Sucursal y Canal ({sortedRecords.length})
+            Detalle por Sucursal ({sortedRecords.length})
           </button>
           <button
             onClick={() => setActiveTab('grouped')}
@@ -902,6 +905,17 @@ export function OperationalDashboard({
             }`}
           >
             Consolidado por Supervisora ({supervisorGroups.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('charts')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'charts'
+                ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/40'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+            <span>Gráficos y Estadísticas</span>
           </button>
           {isMultiPeriod && (
             <button
@@ -968,7 +982,7 @@ export function OperationalDashboard({
       {activeTab === 'table' ? (
         <div className="space-y-3">
           {/* Multi-selection Action Bar */}
-          {selectedIndexes.size > 0 && (
+          {!isGuest && selectedIndexes.size > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-slate-900/90 border border-amber-500/30 shadow-lg shadow-amber-950/20 backdrop-blur-md animate-fadeIn">
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs font-mono-numbers border border-amber-500/30">
@@ -1012,24 +1026,26 @@ export function OperationalDashboard({
                 <thead className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 select-none">
                   <tr>
                     {/* Checkbox Select All */}
-                    <th className="p-3.5 w-10 text-center">
-                      <button
-                        type="button"
-                        onClick={handleToggleSelectAll}
-                        className="inline-flex items-center justify-center text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
-                        title={isAllSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
-                      >
-                        {isAllSelected ? (
-                          <CheckSquare className="w-4 h-4 text-amber-400" />
-                        ) : isSomeSelected ? (
-                          <div className="w-4 h-4 rounded border border-amber-400 bg-amber-400/20 flex items-center justify-center">
-                            <span className="w-2 h-0.5 bg-amber-400 rounded-sm" />
-                          </div>
-                        ) : (
-                          <Square className="w-4 h-4 text-slate-500 hover:text-slate-300" />
-                        )}
-                      </button>
-                    </th>
+                    {!isGuest && (
+                      <th className="p-3.5 w-10 text-center">
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectAll}
+                          className="inline-flex items-center justify-center text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                          title={isAllSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                        >
+                          {isAllSelected ? (
+                            <CheckSquare className="w-4 h-4 text-amber-400" />
+                          ) : isSomeSelected ? (
+                            <div className="w-4 h-4 rounded border border-amber-400 bg-amber-400/20 flex items-center justify-center">
+                              <span className="w-2 h-0.5 bg-amber-400 rounded-sm" />
+                            </div>
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-500 hover:text-slate-300" />
+                          )}
+                        </button>
+                      </th>
+                    )}
                     <th onClick={() => handleSort('canal')} className="p-3.5 cursor-pointer hover:text-amber-400 transition-colors">
                       <div className="flex items-center gap-1.5">
                         Canal
@@ -1079,7 +1095,7 @@ export function OperationalDashboard({
                         <ArrowUpDown className={`w-3 h-3 ${sortField === 'disponibilidad' ? 'text-amber-400' : 'text-slate-600'}`} />
                       </div>
                     </th>
-                    {onDeleteRecord && (
+                    {!isGuest && onDeleteRecord && (
                       <th className="p-3.5 text-center w-12 text-slate-500">
                         <span className="sr-only">Acciones</span>
                       </th>
@@ -1106,7 +1122,8 @@ export function OperationalDashboard({
                           : 'hover:bg-slate-800/40'
                       }`}
                     >
-                      {/* Row Checkbox */}
+                    {/* Row Checkbox */}
+                    {!isGuest && (
                       <td className="p-3.5 text-center">
                         <button
                           type="button"
@@ -1121,6 +1138,7 @@ export function OperationalDashboard({
                           )}
                         </button>
                       </td>
+                    )}
 
                       {/* Canal Badge - Solid Pastel Themed */}
                       <td className="p-3.5 font-sans">
@@ -1228,7 +1246,7 @@ export function OperationalDashboard({
                       </td>
 
                       {/* Row Delete Action */}
-                      {onDeleteRecord && (
+                      {!isGuest && onDeleteRecord && (
                         <td className="p-3.5 text-center">
                           <button
                             type="button"
@@ -1411,7 +1429,7 @@ export function OperationalDashboard({
                   <div className="pt-2">
                     <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">
                       <span>Sucursales ({storeList.length})</span>
-                      <span className="text-[10px] lowercase text-slate-500 font-normal">arrastra para mover</span>
+                      {!isGuest && <span className="text-[10px] lowercase text-slate-500 font-normal">arrastra para mover</span>}
                     </div>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 no-scrollbar">
                       {storeList.map((item, i) => {
@@ -1419,8 +1437,9 @@ export function OperationalDashboard({
                         return (
                           <div
                             key={item.name}
-                            draggable
+                            draggable={!isGuest}
                             onDragStart={(e) => {
+                              if (isGuest) return;
                               e.dataTransfer.setData('text/plain', item.name);
                               e.dataTransfer.effectAllowed = 'move';
                               setDraggedStore({
@@ -1433,15 +1452,17 @@ export function OperationalDashboard({
                               setDraggedStore(null);
                               setDragOverSupId(null);
                             }}
-                            className={`flex items-center justify-between text-xs px-3 py-2 rounded-xl border transition-all select-none cursor-grab active:cursor-grabbing ${
-                              isDraggingThis
-                                ? 'opacity-40 border-dashed border-amber-400 bg-amber-500/10'
-                                : 'bg-slate-950/80 border-slate-800/70 hover:border-amber-400/50 hover:bg-slate-900/90'
+                            className={`flex items-center justify-between text-xs px-3 py-2 rounded-xl border transition-all select-none ${
+                              isGuest
+                                ? 'bg-slate-950/80 border-slate-800/70 cursor-default'
+                                : isDraggingThis
+                                ? 'opacity-40 border-dashed border-amber-400 bg-amber-500/10 cursor-grab active:cursor-grabbing'
+                                : 'bg-slate-950/80 border-slate-800/70 hover:border-amber-400/50 hover:bg-slate-900/90 cursor-grab active:cursor-grabbing'
                             }`}
-                            title="Arrastra para mover a otra supervisora"
+                            title={isGuest ? undefined : "Arrastra para mover a otra supervisora"}
                           >
                             <div className="flex items-center gap-2 truncate">
-                              <GripVertical className="w-3.5 h-3.5 text-slate-500 shrink-0 hover:text-amber-400" />
+                              {!isGuest && <GripVertical className="w-3.5 h-3.5 text-slate-500 shrink-0 hover:text-amber-400" />}
                               <span className="text-[10px] text-slate-500 font-mono">#{i + 1}</span>
                               <span className="text-white font-medium truncate">{item.name}</span>
                             </div>
@@ -1467,6 +1488,17 @@ export function OperationalDashboard({
               );
             })}
           </div>
+        </div>
+      ) : activeTab === 'charts' ? (
+        <div className="op-view-content">
+          <OperationalCharts
+            records={filteredRecords}
+            supervisors={supervisors}
+            storeMap={storeMap}
+            supervisorMap={supervisorMap}
+            thresholds={thresholds}
+            selectedPeriod={activePeriods[0] || selectedPeriod}
+          />
         </div>
       ) : (
         /* Multi-Period Comparative View */

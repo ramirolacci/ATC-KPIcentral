@@ -10,6 +10,7 @@ import { REVIEW_CHANNELS, CANAL_THEMES } from '../config';
 import { AnimatedCounter } from './AnimatedCounter';
 import { ModalWrapper } from './ModalWrapper';
 import { CustomSelect } from './CustomSelect';
+import { ReviewsCharts } from './ReviewsCharts';
 
 // Initial synthetic monthly reviews structure covering 5 channels
 export const INITIAL_REVIEWS_DATA = {
@@ -73,7 +74,8 @@ export const INITIAL_REVIEWS_DATA = {
   ]
 };
 
-export function ReviewsDashboard({ supervisors, stores }) {
+export function ReviewsDashboard({ supervisors, stores, currentUser }) {
+  const isGuest = currentUser?.role === 'guest';
   const [reviewsData, setReviewsData] = useState(() => {
     const saved = localStorage.getItem('mg_kpi_reviews_v2');
     if (saved) {
@@ -333,13 +335,15 @@ export function ReviewsDashboard({ supervisors, stores }) {
               )}
             </div>
 
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Carga Mensual</span>
-            </button>
+            {!isGuest && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Carga Mensual</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -400,6 +404,9 @@ export function ReviewsDashboard({ supervisors, stores }) {
         </div>
       </div>
 
+      {/* Visual Analytics - Calificaciones por Canal y Ranking en Barras */}
+      <ReviewsCharts items={filteredItems} />
+
       {/* Reviews Table */}
       <div className="rev-table-container glass-panel rounded-2xl overflow-hidden shadow-2xl border border-slate-800/80">
         <div className="px-4 py-3.5 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-950/60">
@@ -456,9 +463,11 @@ export function ReviewsDashboard({ supervisors, stores }) {
                 <th className="p-3.5 text-right">Variación</th>
                 <th className="p-3.5 text-right">Reseñas Nuevas</th>
                 <th className="p-3.5 text-center">Estado</th>
-                <th className="p-3.5 text-center w-12 text-slate-500">
-                  <span className="sr-only">Acciones</span>
-                </th>
+                {!isGuest && (
+                  <th className="p-3.5 text-center w-12 text-slate-500">
+                    <span className="sr-only">Acciones</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50 font-mono-numbers">
@@ -560,16 +569,18 @@ export function ReviewsDashboard({ supervisors, stores }) {
                     </td>
 
                     {/* Delete item button */}
-                    <td className="p-3.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setReviewToDelete(item)}
-                        className="opacity-0 group-hover/revrow:opacity-100 p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/15 transition-all duration-150 cursor-pointer"
-                        title={`Borrar calificación de ${item.tienda} (${item.canal})`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+                    {!isGuest && (
+                      <td className="p-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setReviewToDelete(item)}
+                          className="opacity-0 group-hover/revrow:opacity-100 p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/15 transition-all duration-150 cursor-pointer"
+                          title={`Borrar calificación de ${item.tienda} (${item.canal})`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

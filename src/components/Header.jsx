@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { 
   LayoutDashboard, Star, Upload, 
-  SlidersHorizontal
+  SlidersHorizontal, LogOut, User, ShieldAlert
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -10,7 +10,9 @@ export function Header({
   activeModule,
   onModuleChange,
   onOpenImport,
-  onOpenThresholds
+  onOpenThresholds,
+  currentUser,
+  onLogout
 }) {
   const headerRef = useRef(null);
 
@@ -23,6 +25,8 @@ export function Header({
     },
     { scope: headerRef }
   );
+
+  const isGuest = currentUser?.role === 'guest';
 
   return (
     <header ref={headerRef} className="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/75 border-b border-slate-800/70 shadow-sm">
@@ -80,23 +84,56 @@ export function Header({
           </button>
         </div>
 
-        {/* Quick Actions */}
-        <div className="header-actions flex items-center gap-2.5">
-          <button
-            onClick={onOpenThresholds}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800/90 hover:border-amber-500/40 text-xs font-semibold text-slate-300 hover:text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm cursor-pointer"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
-            <span>Semáforos</span>
-          </button>
+        {/* Quick Actions & User Profile */}
+        <div className="header-actions flex items-center gap-2 sm:gap-2.5">
+          {/* Semáforos Action (Disabled or visible for admins) */}
+          {!isGuest && (
+            <button
+              onClick={onOpenThresholds}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800/90 hover:border-amber-500/40 text-xs font-semibold text-slate-300 hover:text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Semáforos</span>
+            </button>
+          )}
 
-          <button
-            onClick={onOpenImport}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800/90 hover:border-emerald-500/40 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Importar Excel</span>
-          </button>
+          {/* Import Excel Action (Only for admins) */}
+          {!isGuest ? (
+            <button
+              onClick={onOpenImport}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800/90 hover:border-emerald-500/40 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Importar Excel</span>
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+              <span>Modo Invitado (Solo Lectura)</span>
+            </div>
+          )}
+
+          {/* User Badge & Logout */}
+          {currentUser && (
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-800/80">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-white truncate max-w-[120px]">
+                  {currentUser.name}
+                </p>
+                <p className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">
+                  {isGuest ? 'Invitado' : 'Administrador'}
+                </p>
+              </div>
+
+              <button
+                onClick={onLogout}
+                className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-500/15 border border-slate-800 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 transition-all duration-200 cursor-pointer shadow-sm group"
+                title="Cerrar Sesión"
+              >
+                <LogOut className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
