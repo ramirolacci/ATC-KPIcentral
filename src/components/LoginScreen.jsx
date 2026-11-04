@@ -1,32 +1,41 @@
 import React, { useState, useRef } from 'react';
 import { 
   Lock, Mail, ArrowRight, Eye, EyeOff, UserCheck, 
-  Sparkles, AlertCircle, ShieldCheck, KeyRound
+  AlertCircle, ShieldCheck
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 
-const AUTHORIZED_ACCOUNTS = [
-  {
+// Cuentas con privilegios de Administrador (Acceso total)
+const ADMIN_ACCOUNTS = {
+  'alexandraramirez@migusto.com.ar': {
     name: 'Alexandra Ramírez',
-    email: 'alexandraramirez@migusto.com.ar',
-    shortEmail: 'alexandraramirez@migusto...',
-    initials: 'AR',
-    role: 'Acceso Total',
-    badgeColor: 'border-amber-500/30 text-amber-300 bg-amber-500/10'
+    role: 'admin'
   },
-  {
+  'mariasalazar@migusto.com.ar': {
     name: 'María Salazar',
-    email: 'mariasalazar@migusto.com.ar',
-    shortEmail: 'mariasalazar@migusto...',
-    initials: 'MS',
-    role: 'Acceso Total',
-    badgeColor: 'border-amber-500/30 text-amber-300 bg-amber-500/10'
+    role: 'admin'
   }
-];
+};
 
-const VALID_USERS = AUTHORIZED_ACCOUNTS.map(a => a.email);
 const FIXED_PASSWORD = 'MiGusto123';
+
+/**
+ * Convierte un email corporativo (ej: damaris.burgos@migusto.com.ar)
+ * a un nombre legible ("Damaris Burgos")
+ */
+function formatUserNameFromEmail(email) {
+  try {
+    const localPart = email.split('@')[0];
+    const words = localPart.split(/[._-]/).filter(Boolean);
+    if (words.length === 0) return 'Usuario';
+    return words
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  } catch {
+    return 'Usuario';
+  }
+}
 
 export function LoginScreen({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -34,7 +43,6 @@ export function LoginScreen({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeAccount, setActiveAccount] = useState(null);
 
   const containerRef = useRef(null);
 
@@ -44,7 +52,6 @@ export function LoginScreen({ onLoginSuccess }) {
       tl.from('.login-card', { opacity: 0, y: 16, scale: 0.98, duration: 0.5 })
         .from('.login-brand', { opacity: 0, y: -8, duration: 0.4 }, '-=0.3')
         .from('.login-field', { opacity: 0, y: 8, stagger: 0.08, duration: 0.35 }, '-=0.2')
-        .from('.login-quick', { opacity: 0, y: 6, duration: 0.35 }, '-=0.15')
         .from('.login-guest', { opacity: 0, y: 6, duration: 0.35 }, '-=0.2')
         .from('.login-footer', { opacity: 0, duration: 0.4 }, '-=0.2');
     },
@@ -58,12 +65,19 @@ export function LoginScreen({ onLoginSuccess }) {
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedEmail) {
-      setError('Ingresá tu correo electrónico corporativo');
+      setError('Por favor, ingresá tu correo electrónico');
       return;
     }
 
-    if (!VALID_USERS.includes(trimmedEmail)) {
-      setError('El correo no coincide con las cuentas autorizadas');
+    // Validación básica de formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('El formato del correo electrónico ingresado no es válido');
+      return;
+    }
+
+    if (!password) {
+      setError('Por favor, ingresá tu contraseña');
       return;
     }
 
@@ -74,12 +88,23 @@ export function LoginScreen({ onLoginSuccess }) {
 
     setIsLoading(true);
     setTimeout(() => {
-      const matched = AUTHORIZED_ACCOUNTS.find(a => a.email === trimmedEmail);
-      onLoginSuccess({
-        email: trimmedEmail,
-        role: 'admin',
-        name: matched ? matched.name : 'Administrador'
-      });
+      // Si el email pertenece al grupo de Administradores, se le asigna rol 'admin'
+      // Para cualquier otro usuario, se ingresa en modo 'guest' (Solo Lectura)
+      const adminMatch = ADMIN_ACCOUNTS[trimmedEmail];
+
+      if (adminMatch) {
+        onLoginSuccess({
+          email: trimmedEmail,
+          role: 'admin',
+          name: adminMatch.name
+        });
+      } else {
+        onLoginSuccess({
+          email: trimmedEmail,
+          role: 'guest',
+          name: formatUserNameFromEmail(trimmedEmail)
+        });
+      }
     }, 380);
   };
 
@@ -93,13 +118,6 @@ export function LoginScreen({ onLoginSuccess }) {
         name: 'Invitado (Solo Lectura)'
       });
     }, 300);
-  };
-
-  const fillQuickAccount = (account) => {
-    setEmail(account.email);
-    setPassword(FIXED_PASSWORD);
-    setActiveAccount(account.email);
-    setError('');
   };
 
   return (
@@ -119,7 +137,7 @@ export function LoginScreen({ onLoginSuccess }) {
 
       {/* Main Login Card Centered Container */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative z-10 w-full">
-        <div className="login-card w-full max-w-[440px]">
+        <div className="login-card w-full max-w-[420px]">
         
           {/* Subtle Ambient Glow Border */}
           <div className="relative rounded-3xl p-[1px] bg-gradient-to-b from-amber-500/35 via-slate-700/30 to-slate-800/40 shadow-2xl shadow-black/80">
@@ -174,10 +192,7 @@ export function LoginScreen({ onLoginSuccess }) {
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setActiveAccount(null);
-                      }}
+                      onChange={(e) => setEmail(e.target.value)}
                       placeholder="usuario@migusto.com.ar"
                       className="w-full bg-slate-950/70 border border-slate-800 hover:border-slate-700 focus:border-amber-500/80 focus:ring-2 focus:ring-amber-500/20 focus:bg-slate-950/90 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 transition-all outline-none"
                     />
@@ -232,54 +247,6 @@ export function LoginScreen({ onLoginSuccess }) {
                   </button>
                 </div>
               </form>
-
-              {/* Quick Access Credentials (Modern authorized user cards) */}
-              <div className="login-quick pt-1 space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                  <span className="flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Acceso rápido autorizado</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-mono">1-click</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {AUTHORIZED_ACCOUNTS.map((account) => {
-                    const isSelected = activeAccount === account.email || email.toLowerCase() === account.email.toLowerCase();
-                    return (
-                      <button
-                        key={account.email}
-                        type="button"
-                        onClick={() => fillQuickAccount(account)}
-                        className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer group relative overflow-hidden ${
-                          isSelected 
-                            ? 'bg-amber-500/10 border-amber-500/50 shadow-sm shadow-amber-500/10' 
-                            : 'bg-slate-950/60 hover:bg-slate-800/70 border-slate-800/80 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {/* Avatar */}
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 transition-colors ${
-                            isSelected
-                              ? 'bg-amber-500 text-slate-950'
-                              : 'bg-slate-800 text-slate-300 group-hover:bg-slate-700 group-hover:text-white'
-                          }`}>
-                            {account.initials}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-bold text-slate-200 truncate group-hover:text-amber-400 transition-colors">
-                              {account.name}
-                            </p>
-                            <p className="text-[9px] text-slate-500 truncate">
-                              {account.role}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Subtle Divider */}
               <div className="login-guest relative flex items-center justify-center py-0.5">
