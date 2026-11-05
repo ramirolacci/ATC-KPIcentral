@@ -122,38 +122,6 @@
 
 ---
 
-## 📂 Estructura del Proyecto
-
-```text
-ATC-KPIcentral/
-├── public/
-│   ├── Logo_Mi_Gusto_2025.png      # Identidad visual corporativa
-│   └── screenshots/                # Capturas de la suite operativa
-│       ├── Screenshot_5.png        # Pantalla de Login / Autenticación
-│       ├── Screenshot_6.png        # Módulo de Reseñas & Puntuaciones
-│       ├── Screenshot_7.png        # KPIs Operativos y Sucursales
-│       └── Screenshot_8.png        # Gráficos y Estadísticas
-├── src/
-│   ├── components/
-│   │   ├── Header.jsx              # Barra superior de navegación y usuario
-│   │   ├── LoginScreen.jsx         # Portal de login y control de acceso
-│   │   ├── OperationalDashboard.jsx# Tablero central de KPIs y tiendas
-│   │   ├── ReviewsDashboard.jsx    # Tablero de reputación y reseñas
-│   │   ├── ImportModal.jsx         # Modal de ingesta de archivos Excel
-│   │   └── ThresholdsModal.jsx     # Gestor de semáforos y tolerancias
-│   ├── hooks/
-│   │   └── useGsapAnimations.js    # Hooks reutilizables de animación GSAP
-│   ├── config.js                   # Configuración inicial, supervisoras y tiendas
-│   ├── utils.js                    # Normalizadores de métricas y exportación PDF
-│   ├── index.css                   # Sistema base de diseño y glassmorphism
-│   ├── App.jsx                     # Enrutamiento de estado y orquestación
-│   └── main.jsx                    # Punto de entrada de la aplicación
-├── package.json
-└── vite.config.js
-```
-
----
-
 ## ⚙️ Instalación y Puesta en Marcha
 
 ### Prerrequisitos
