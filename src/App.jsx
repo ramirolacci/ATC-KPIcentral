@@ -55,10 +55,10 @@ export default function App() {
   // Datasets loaded from preloaded JSON or LocalStorage
   const [datasets, setDatasets] = useState(() => {
     const saved = localStorage.getItem(LS_DATA_KEY);
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && Object.keys(parsed).length > 0) return parsed;
+        if (parsed && typeof parsed === 'object') return parsed;
       } catch (e) {}
     }
     return preloadedData;
@@ -257,6 +257,7 @@ export default function App() {
               onReassignStore={handleReassignStore}
               thresholds={thresholds}
               currentUser={currentUser}
+              onOpenImport={() => setIsImportOpen(true)}
             />
           ) : (
             <ReviewsDashboard
