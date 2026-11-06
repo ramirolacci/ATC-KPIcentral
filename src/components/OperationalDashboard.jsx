@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   ArrowUpDown, Download, Search, AlertTriangle, Trash2, CheckSquare, Square,
   ShoppingBag, XCircle, MessageSquareWarning, DollarSign, Clock, CheckCircle2,
-  TrendingUp, TrendingDown, Layers, BarChart3, ArrowRight, GripVertical, ChevronRight
+  TrendingUp, TrendingDown, Layers, BarChart3, ArrowRight, GripVertical, ChevronRight, Upload
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -24,12 +24,13 @@ export function OperationalDashboard({
   onDeletePeriod,
   onDeleteRecord,
   onDeleteRecords,
-  availablePeriods,
+  availablePeriods = [],
   supervisors,
   stores,
   onReassignStore,
   thresholds,
-  currentUser
+  currentUser,
+  onOpenImport
 }) {
   const isGuest = currentUser?.role === 'guest';
   // Drag and Drop State for store reassignment across supervisors
@@ -564,6 +565,36 @@ export function OperationalDashboard({
     }
   };
 
+  if (availablePeriods.length === 0) {
+    return (
+      <div ref={containerRef} className="space-y-6 w-full">
+        <div className="glass-panel rounded-3xl p-8 sm:p-14 text-center border border-slate-800 space-y-4 my-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400 shadow-inner">
+            <Upload className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            No hay períodos operativos cargados
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+            Se han eliminado todos los períodos del sistema. Podés importar una nueva planilla de Excel para comenzar a analizar los datos y métricas operativas.
+          </p>
+          {!isGuest && onOpenImport && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onOpenImport}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-500/25 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Importar Archivo Excel</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className="space-y-6 w-full">
       {/* Modern Filter Toolbar */}
@@ -591,7 +622,7 @@ export function OperationalDashboard({
                   placeholder="Seleccionar períodos..."
                   className="w-52 sm:w-64"
                 />
-                {!isGuest && onDeletePeriod && availablePeriods.length > 1 && !isMultiPeriod && (
+                {!isGuest && onDeletePeriod && availablePeriods.length > 0 && !isMultiPeriod && (
                   <button
                     type="button"
                     onClick={() => setPeriodToDelete(activePeriods[0] || selectedPeriod)}
