@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { 
   LayoutDashboard, Star, Upload, 
-  SlidersHorizontal, LogOut, User, ShieldAlert
+  SlidersHorizontal, LogOut, ShieldAlert,
+  Cloud, CloudOff, RefreshCw
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -12,7 +13,10 @@ export function Header({
   onOpenImport,
   onOpenThresholds,
   currentUser,
-  onLogout
+  onLogout,
+  syncStatus = 'idle',
+  syncMessage = '',
+  onTriggerSync
 }) {
   const headerRef = useRef(null);
 
@@ -86,6 +90,31 @@ export function Header({
 
         {/* Quick Actions & User Profile */}
         <div className="header-actions flex items-center gap-2 sm:gap-2.5">
+          {/* Cloud Sync Status Indicator & Manual Refresh */}
+          <button
+            onClick={onTriggerSync}
+            disabled={syncStatus === 'syncing'}
+            title={syncMessage || 'Estado de sincronización'}
+            className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 transition-all duration-200 cursor-pointer shadow-sm active:scale-95"
+          >
+            {syncStatus === 'syncing' ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                <span className="hidden md:inline text-blue-300">Sincronizando...</span>
+              </>
+            ) : syncStatus === 'synced' ? (
+              <>
+                <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden md:inline text-emerald-300">Nube Activa</span>
+              </>
+            ) : (
+              <>
+                <CloudOff className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden md:inline text-amber-300">Modo Local</span>
+              </>
+            )}
+          </button>
+
           {/* Semáforos Action (Disabled or visible for admins) */}
           {!isGuest && (
             <button

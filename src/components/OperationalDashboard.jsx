@@ -1855,7 +1855,7 @@ export function OperationalDashboard({
       <ModalWrapper
         isOpen={Boolean(periodToDelete)}
         onClose={() => setPeriodToDelete(null)}
-        className="max-w-md"
+        className="max-w-md w-full p-6 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black/80 ring-1 ring-white/10"
       >
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -1879,13 +1879,6 @@ export function OperationalDashboard({
           <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
             <button
               type="button"
-              onClick={() => setPeriodToDelete(null)}
-              className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
               onClick={() => {
                 if (periodToDelete) {
                   onDeletePeriod?.(periodToDelete);
@@ -1896,6 +1889,13 @@ export function OperationalDashboard({
             >
               Sí, eliminar período
             </button>
+            <button
+              type="button"
+              onClick={() => setPeriodToDelete(null)}
+              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-xl transition-all cursor-pointer"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       </ModalWrapper>
@@ -1904,7 +1904,7 @@ export function OperationalDashboard({
       <ModalWrapper
         isOpen={isBulkDeletePeriodsModalOpen}
         onClose={() => setIsBulkDeletePeriodsModalOpen(false)}
-        className="max-w-md"
+        className="max-w-md w-full p-6 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black/80 ring-1 ring-white/10"
       >
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -1937,13 +1937,6 @@ export function OperationalDashboard({
           <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
             <button
               type="button"
-              onClick={() => setIsBulkDeletePeriodsModalOpen(false)}
-              className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
               onClick={() => {
                 if (onDeletePeriods) {
                   onDeletePeriods(activePeriods);
@@ -1956,6 +1949,13 @@ export function OperationalDashboard({
             >
               Sí, eliminar {activePeriods.length} períodos
             </button>
+            <button
+              type="button"
+              onClick={() => setIsBulkDeletePeriodsModalOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-xl transition-all cursor-pointer"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       </ModalWrapper>
@@ -1964,7 +1964,7 @@ export function OperationalDashboard({
       <ModalWrapper
         isOpen={Boolean(recordToDelete)}
         onClose={() => setRecordToDelete(null)}
-        className="max-w-md"
+        className="max-w-md w-full p-6 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black/80 ring-1 ring-white/10"
       >
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -1995,13 +1995,6 @@ export function OperationalDashboard({
           <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
             <button
               type="button"
-              onClick={() => setRecordToDelete(null)}
-              className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
               onClick={() => {
                 if (recordToDelete && recordToDelete._originalIndex !== undefined) {
                   onDeleteRecord?.(selectedPeriod, recordToDelete._originalIndex);
@@ -2012,6 +2005,13 @@ export function OperationalDashboard({
             >
               Eliminar registro
             </button>
+            <button
+              type="button"
+              onClick={() => setRecordToDelete(null)}
+              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-xl transition-all cursor-pointer"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       </ModalWrapper>
@@ -2020,7 +2020,7 @@ export function OperationalDashboard({
       <ModalWrapper
         isOpen={isBulkDeleteModalOpen}
         onClose={() => setIsBulkDeleteModalOpen(false)}
-        className="max-w-md"
+        className="max-w-md w-full p-6 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black/80 ring-1 ring-white/10"
       >
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -2049,13 +2049,6 @@ export function OperationalDashboard({
           <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
             <button
               type="button"
-              onClick={() => setIsBulkDeleteModalOpen(false)}
-              className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
               onClick={() => {
                 const indexes = Array.from(selectedIndexes);
                 if (onDeleteRecords) {
@@ -2070,6 +2063,13 @@ export function OperationalDashboard({
               className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition-all shadow-md shadow-rose-950/40 cursor-pointer"
             >
               Sí, eliminar {selectedIndexes.size} {selectedIndexes.size === 1 ? 'registro' : 'registros'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteModalOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-xl transition-all cursor-pointer"
+            >
+              Cancelar
             </button>
           </div>
         </div>

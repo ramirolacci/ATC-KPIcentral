@@ -10,10 +10,21 @@ import { ThresholdsModal } from './components/ThresholdsModal';
 import { LoginScreen } from './components/LoginScreen';
 import { INITIAL_SUPERVISORS, INITIAL_STORES, INITIAL_THRESHOLDS } from './config';
 import preloadedData from './preloadedData.json';
+import {
+  isSupabaseConfigured,
+  fetchPeriodsFromCloud,
+  savePeriodsToCloud,
+  deletePeriodFromCloud,
+  deletePeriodsFromCloud,
+  updatePeriodRecordsInCloud,
+  fetchSettingFromCloud,
+  saveSettingToCloud
+} from './supabaseClient';
 
 const LS_DATA_KEY = 'mg_kpi_central_data_v4';
 const LS_THRESHOLDS_KEY = 'mg_kpi_thresholds_v3';
 const LS_AUTH_KEY = 'mg_kpi_user_auth_v1';
+const LS_STORES_KEY = 'mg_kpi_stores_assignment_v2';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -85,7 +96,6 @@ export default function App() {
   });
 
   // Stores assignment state with LocalStorage persistence
-  const LS_STORES_KEY = 'mg_kpi_stores_assignment_v2';
   const [stores, setStores] = useState(() => {
     const saved = localStorage.getItem(LS_STORES_KEY);
     if (saved) {
@@ -111,6 +121,9 @@ export default function App() {
         updated = [...prevStores, { id: `t_${lowerName.replace(/\s+/g, '_')}`, name: storeName, sup: newSupId }];
       }
       localStorage.setItem(LS_STORES_KEY, JSON.stringify(updated));
+      if (isSupabaseConfigured) {
+        saveSettingToCloud('stores', updated);
+      }
       return updated;
     });
   };
@@ -118,6 +131,65 @@ export default function App() {
   // Modals state
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isThresholdsOpen, setIsThresholdsOpen] = useState(false);
+
+  // Cloud sync state
+  const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'idle' : 'offline');
+  const [syncMessage, setSyncMessage] = useState(
+    isSupabaseConfigured ? 'Listo para sincronizar' : 'Modo local (Sin Supabase configurado)'
+  );
+
+  // Sync function that pulls the latest data from Supabase
+  const syncFromCloud = async () => {
+    if (!isSupabaseConfigured) {
+      setSyncStatus('offline');
+      setSyncMessage('Modo local (Sin Supabase configurado)');
+      return;
+    }
+    setSyncStatus('syncing');
+    setSyncMessage('Sincronizando con base central...');
+
+    try {
+      const cloudPeriods = await fetchPeriodsFromCloud();
+      if (cloudPeriods !== null) {
+        setSyncStatus('synced');
+        setSyncMessage('Sincronizado con la base central');
+
+        // Merge cloud periods over datasets and cache in localStorage
+        setDatasets((prev) => {
+          const merged = { ...prev, ...cloudPeriods };
+          try {
+            localStorage.setItem(LS_DATA_KEY, JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
+      } else {
+        setSyncStatus('error');
+        setSyncMessage('Error de conexión a la nube (usando datos locales)');
+      }
+
+      // Sync settings: thresholds & stores
+      const cloudThresholds = await fetchSettingFromCloud('thresholds');
+      if (cloudThresholds) {
+        setThresholds(cloudThresholds);
+        localStorage.setItem(LS_THRESHOLDS_KEY, JSON.stringify(cloudThresholds));
+      }
+
+      const cloudStores = await fetchSettingFromCloud('stores');
+      if (cloudStores && Array.isArray(cloudStores) && cloudStores.length > 0) {
+        setStores(cloudStores);
+        localStorage.setItem(LS_STORES_KEY, JSON.stringify(cloudStores));
+      }
+    } catch (err) {
+      console.warn('[Sync] Sync failed:', err);
+      setSyncStatus('error');
+      setSyncMessage('Error al sincronizar con la nube');
+    }
+  };
+
+  // Run initial sync on app mount
+  useEffect(() => {
+    syncFromCloud();
+  }, []);
 
   // Update selectedPeriods if availablePeriods change or selections become invalid
   useEffect(() => {
@@ -133,7 +205,7 @@ export default function App() {
     }
   }, [datasets, availablePeriods]);
 
-  const handleImportSuccess = (newParsedData) => {
+  const handleImportSuccess = async (newParsedData) => {
     if (currentUser?.role === 'guest') return;
     const merged = { ...datasets, ...newParsedData };
     setDatasets(merged);
@@ -152,16 +224,33 @@ export default function App() {
         origin: { y: 0.6 }
       });
     } catch (e) {}
+
+    // Synchronize to cloud database
+    if (isSupabaseConfigured) {
+      setSyncStatus('syncing');
+      setSyncMessage('Subiendo nuevo período a la nube...');
+      const ok = await savePeriodsToCloud(newParsedData, currentUser?.email || 'alexandraramirez@migusto.com.ar');
+      if (ok) {
+        setSyncStatus('synced');
+        setSyncMessage('Período guardado y sincronizado en la nube');
+      } else {
+        setSyncStatus('error');
+        setSyncMessage('Guardado en este equipo (error al subir a la nube)');
+      }
+    }
   };
 
-  const handleSaveThresholds = (newThresholds) => {
+  const handleSaveThresholds = async (newThresholds) => {
     if (currentUser?.role === 'guest') return;
     setThresholds(newThresholds);
     localStorage.setItem(LS_THRESHOLDS_KEY, JSON.stringify(newThresholds));
+    if (isSupabaseConfigured) {
+      await saveSettingToCloud('thresholds', newThresholds);
+    }
   };
 
   // Delete an entire period/week dataset
-  const handleDeletePeriod = (periodToDelete) => {
+  const handleDeletePeriod = async (periodToDelete) => {
     if (currentUser?.role === 'guest') return;
     const next = { ...datasets };
     delete next[periodToDelete];
@@ -177,10 +266,14 @@ export default function App() {
     } else {
       setSelectedPeriods([]);
     }
+
+    if (isSupabaseConfigured) {
+      await deletePeriodFromCloud(periodToDelete);
+    }
   };
 
   // Delete multiple periods/weeks
-  const handleDeletePeriods = (periodsToDelete) => {
+  const handleDeletePeriods = async (periodsToDelete) => {
     if (currentUser?.role === 'guest') return;
     if (!periodsToDelete || periodsToDelete.length === 0) return;
     const next = { ...datasets };
@@ -200,10 +293,14 @@ export default function App() {
     } else {
       setSelectedPeriods([]);
     }
+
+    if (isSupabaseConfigured) {
+      await deletePeriodsFromCloud(periodsToDelete);
+    }
   };
 
   // Delete a specific store record inside the active period
-  const handleDeleteRecord = (period, recordIndex) => {
+  const handleDeleteRecord = async (period, recordIndex) => {
     if (currentUser?.role === 'guest') return;
     if (!datasets[period] || !datasets[period].records) return;
     const currentRecords = [...datasets[period].records];
@@ -218,10 +315,14 @@ export default function App() {
     };
     setDatasets(next);
     localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
+
+    if (isSupabaseConfigured) {
+      await updatePeriodRecordsInCloud(period, currentRecords);
+    }
   };
 
   // Delete multiple store records inside the active period
-  const handleDeleteRecords = (period, recordIndexes) => {
+  const handleDeleteRecords = async (period, recordIndexes) => {
     if (currentUser?.role === 'guest') return;
     if (!datasets[period] || !datasets[period].records || !recordIndexes || recordIndexes.length === 0) return;
     const indexSet = new Set(recordIndexes);
@@ -236,6 +337,10 @@ export default function App() {
     };
     setDatasets(next);
     localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
+
+    if (isSupabaseConfigured) {
+      await updatePeriodRecordsInCloud(period, currentRecords);
+    }
   };
 
   // If user is not logged in, show elegant LoginScreen
@@ -254,6 +359,9 @@ export default function App() {
           periodCount={availablePeriods.length}
           currentUser={currentUser}
           onLogout={handleLogout}
+          syncStatus={syncStatus}
+          syncMessage={syncMessage}
+          onTriggerSync={syncFromCloud}
         />
 
         <main ref={mainContentRef} className="w-full px-4 sm:px-8 py-2">

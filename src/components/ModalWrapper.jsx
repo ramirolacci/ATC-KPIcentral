@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 
-export function ModalWrapper({ isOpen, onClose, children, className = '' }) {
+export function ModalWrapper({ isOpen, onClose, children, className = '', overlayClassName = '' }) {
   const [render, setRender] = useState(isOpen);
   const overlayRef = useRef(null);
   const panelRef = useRef(null);
@@ -80,7 +80,7 @@ export function ModalWrapper({ isOpen, onClose, children, className = '' }) {
           onClose();
         }
       }}
-      className="fixed inset-0 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+      className={`fixed inset-0 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto ${overlayClassName}`}
       style={{ zIndex: 9999 }}
     >
       <div ref={panelRef} className={`relative my-auto ${className}`}>
