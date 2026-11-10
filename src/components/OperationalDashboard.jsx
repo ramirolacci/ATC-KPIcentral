@@ -13,6 +13,7 @@ import { CustomSelect } from './CustomSelect';
 import { ModalWrapper } from './ModalWrapper';
 import { exportOperationalKPItoPDF, exportOperationalComparisonPDF } from '../utils/pdfExport';
 import { OperationalCharts } from './OperationalCharts';
+import { StoreComparisonPanel } from './StoreComparisonPanel';
 
 export function OperationalDashboard({
   datasets = {},
@@ -22,6 +23,7 @@ export function OperationalDashboard({
   onPeriodsChange,
   onPeriodChange,
   onDeletePeriod,
+  onDeletePeriods,
   onDeleteRecord,
   onDeleteRecords,
   availablePeriods = [],
@@ -57,11 +59,14 @@ export function OperationalDashboard({
   // Multi-selection state
   const [selectedIndexes, setSelectedIndexes] = useState(new Set());
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeletePeriodsModalOpen, setIsBulkDeletePeriodsModalOpen] = useState(false);
 
   // Auto-switch to comparison tab when multiple periods are picked, or return to table if single
   useEffect(() => {
     if (activePeriods.length > 1) {
-      setActiveTab('comparison');
+      if (activeTab !== 'charts' && activeTab !== 'storeComparison') {
+        setActiveTab('comparison');
+      }
     } else if (activeTab === 'comparison') {
       setActiveTab('table');
     }
@@ -622,15 +627,27 @@ export function OperationalDashboard({
                   placeholder="Seleccionar períodos..."
                   className="w-52 sm:w-64"
                 />
-                {!isGuest && onDeletePeriod && availablePeriods.length > 0 && !isMultiPeriod && (
-                  <button
-                    type="button"
-                    onClick={() => setPeriodToDelete(activePeriods[0] || selectedPeriod)}
-                    className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-500/15 border border-slate-800 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 transition-all duration-200 cursor-pointer shadow-sm group"
-                    title={`Borrar período "${activePeriods[0] || selectedPeriod}"`}
-                  >
-                    <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  </button>
+                {!isGuest && availablePeriods.length > 0 && (
+                  isMultiPeriod ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsBulkDeletePeriodsModalOpen(true)}
+                      className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-500/15 border border-slate-800 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 transition-all duration-200 cursor-pointer shadow-sm group flex items-center gap-1.5"
+                      title={`Borrar las ${activePeriods.length} fechas seleccionadas`}
+                    >
+                      <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform text-rose-400" />
+                      <span className="text-[10px] font-bold text-rose-400 hidden sm:inline">({activePeriods.length})</span>
+                    </button>
+                  ) : onDeletePeriod ? (
+                    <button
+                      type="button"
+                      onClick={() => setPeriodToDelete(activePeriods[0] || selectedPeriod)}
+                      className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-500/15 border border-slate-800 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 transition-all duration-200 cursor-pointer shadow-sm group"
+                      title={`Borrar período "${activePeriods[0] || selectedPeriod}"`}
+                    >
+                      <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    </button>
+                  ) : null
                 )}
               </div>
             </div>
@@ -941,12 +958,23 @@ export function OperationalDashboard({
             onClick={() => setActiveTab('charts')}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'charts'
-                ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                ? 'bg-gradient-to-r from-rose-500/20 to-red-600/20 text-rose-300 border border-rose-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/40'
             }`}
           >
-            <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
-            <span>Gráficos y Estadísticas</span>
+            <BarChart3 className="w-3.5 h-3.5 text-rose-400" />
+            <span>Métricas PedidosYa</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('storeComparison')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'storeComparison'
+                ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-amber-400/90 hover:text-amber-300 hover:bg-slate-850/40'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Panel Comparativo de Sucursales</span>
           </button>
           {isMultiPeriod && (
             <button
@@ -1529,6 +1557,24 @@ export function OperationalDashboard({
             supervisorMap={supervisorMap}
             thresholds={thresholds}
             selectedPeriod={activePeriods[0] || selectedPeriod}
+            previousPeriodName={activePeriods.length > 1 ? activePeriods[1] : availablePeriods[availablePeriods.indexOf(activePeriods[0] || selectedPeriod) - 1] || ''}
+            previousRecords={
+              (activePeriods.length > 1
+                ? datasets[activePeriods[1]]?.records
+                : datasets[availablePeriods[availablePeriods.indexOf(activePeriods[0] || selectedPeriod) - 1]]?.records) || []
+            }
+          />
+        </div>
+      ) : activeTab === 'storeComparison' ? (
+        <div className="op-view-content">
+          <StoreComparisonPanel
+            datasets={datasets}
+            availablePeriods={availablePeriods}
+            stores={stores}
+            supervisors={supervisors}
+            storeMap={storeMap}
+            supervisorMap={supervisorMap}
+            thresholds={thresholds}
           />
         </div>
       ) : (
@@ -1849,6 +1895,66 @@ export function OperationalDashboard({
               className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition-all shadow-md shadow-rose-950/40 cursor-pointer"
             >
               Sí, eliminar período
+            </button>
+          </div>
+        </div>
+      </ModalWrapper>
+
+      {/* Confirmation Modal: Bulk Delete Multiple Periods */}
+      <ModalWrapper
+        isOpen={isBulkDeletePeriodsModalOpen}
+        onClose={() => setIsBulkDeletePeriodsModalOpen(false)}
+        className="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Eliminar Múltiples Períodos ({activePeriods.length})
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Esta acción no se puede deshacer
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 space-y-2">
+            <p>
+              ¿Estás seguro de que deseas eliminar los <strong className="text-rose-400 font-bold">{activePeriods.length} períodos seleccionados</strong> y todos sus registros asociados?
+            </p>
+            <div className="max-h-32 overflow-y-auto no-scrollbar space-y-1 p-2 bg-slate-900 rounded-lg border border-slate-800">
+              {activePeriods.map((p) => (
+                <div key={p} className="text-[11px] text-amber-300 font-mono-numbers">
+                  • {p}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => setIsBulkDeletePeriodsModalOpen(false)}
+              className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onDeletePeriods) {
+                  onDeletePeriods(activePeriods);
+                } else if (onDeletePeriod) {
+                  activePeriods.forEach((p) => onDeletePeriod(p));
+                }
+                setIsBulkDeletePeriodsModalOpen(false);
+              }}
+              className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition-all shadow-md shadow-rose-950/40 cursor-pointer"
+            >
+              Sí, eliminar {activePeriods.length} períodos
             </button>
           </div>
         </div>

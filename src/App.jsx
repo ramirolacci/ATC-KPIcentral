@@ -179,6 +179,29 @@ export default function App() {
     }
   };
 
+  // Delete multiple periods/weeks
+  const handleDeletePeriods = (periodsToDelete) => {
+    if (currentUser?.role === 'guest') return;
+    if (!periodsToDelete || periodsToDelete.length === 0) return;
+    const next = { ...datasets };
+    const toDeleteSet = new Set(periodsToDelete);
+    periodsToDelete.forEach((p) => {
+      delete next[p];
+    });
+    setDatasets(next);
+    localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
+
+    const remaining = Object.keys(next);
+    if (remaining.length > 0) {
+      setSelectedPeriods((prev) => {
+        const filtered = prev.filter((p) => !toDeleteSet.has(p));
+        return filtered.length > 0 ? filtered : [remaining[remaining.length - 1]];
+      });
+    } else {
+      setSelectedPeriods([]);
+    }
+  };
+
   // Delete a specific store record inside the active period
   const handleDeleteRecord = (period, recordIndex) => {
     if (currentUser?.role === 'guest') return;
@@ -249,6 +272,7 @@ export default function App() {
                 }
               }}
               onDeletePeriod={handleDeletePeriod}
+              onDeletePeriods={handleDeletePeriods}
               onDeleteRecord={handleDeleteRecord}
               onDeleteRecords={handleDeleteRecords}
               availablePeriods={availablePeriods}
