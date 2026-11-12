@@ -8,6 +8,8 @@ import { ReviewsDashboard } from './components/ReviewsDashboard';
 import { ImportModal } from './components/ImportModal';
 import { ThresholdsModal } from './components/ThresholdsModal';
 import { LoginScreen } from './components/LoginScreen';
+import { ModalWrapper } from './components/ModalWrapper';
+import { AlertTriangle, CloudOff, X } from 'lucide-react';
 import { INITIAL_SUPERVISORS, INITIAL_STORES, INITIAL_THRESHOLDS } from './config';
 import preloadedData from './preloadedData.json';
 import {
@@ -137,6 +139,7 @@ export default function App() {
   const [syncMessage, setSyncMessage] = useState(
     isSupabaseConfigured ? 'Listo para sincronizar' : 'Modo local (Sin Supabase configurado)'
   );
+  const [cloudSyncAlert, setCloudSyncAlert] = useState(null);
 
   // Sync function that pulls the latest data from Supabase
   const syncFromCloud = async () => {
@@ -236,7 +239,18 @@ export default function App() {
       } else {
         setSyncStatus('error');
         setSyncMessage('Guardado en este equipo (error al subir a la nube)');
+        setCloudSyncAlert({
+          title: 'Guardado solo en esta computadora',
+          message:
+            'El Excel se cargó correctamente en este navegador, pero NO se pudo conectar a la base de datos central de Supabase. Por eso los demás usuarios y computadoras no podrán ver este período hasta que la base de datos en la nube esté activa.'
+        });
       }
+    } else {
+      setCloudSyncAlert({
+        title: 'Modo Local (Sin base de datos configurada)',
+        message:
+          'El archivo se guardó solo en esta computadora porque no hay una base de datos central configurada en .env. Para que todos los usuarios lo vean, se debe conectar Supabase.'
+      });
     }
   };
 
@@ -421,6 +435,41 @@ export default function App() {
         thresholds={thresholds}
         onSaveThresholds={handleSaveThresholds}
       />
+
+      {/* Cloud Sync Warning Modal */}
+      <ModalWrapper
+        isOpen={Boolean(cloudSyncAlert)}
+        onClose={() => setCloudSyncAlert(null)}
+        className="max-w-md w-full p-6 bg-slate-900 border border-amber-500/40 rounded-2xl shadow-2xl shadow-black/80 ring-1 ring-amber-500/20 space-y-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+            <CloudOff className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-bold text-white tracking-tight">
+              {cloudSyncAlert?.title}
+            </h3>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              {cloudSyncAlert?.message}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+          <span className="font-semibold text-amber-300">¿Por qué sucede?</span> El sistema guardó los datos en este navegador para que no pierdas tu trabajo, pero la base de datos central de Supabase en <code className="text-slate-300">.env</code> no está activa. Al reactivarla y re-compilar, se sincronizará automáticamente para todas las sucursales y usuarios.
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-slate-800">
+          <button
+            type="button"
+            onClick={() => setCloudSyncAlert(null)}
+            className="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition-all shadow-md cursor-pointer"
+          >
+            Entendido
+          </button>
+        </div>
+      </ModalWrapper>
     </div>
   );
 }
