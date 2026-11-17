@@ -7,6 +7,7 @@ import {
   Flame, CheckSquare, ListTodo, CalendarDays
 } from 'lucide-react';
 import { fmtInt, fmtCurrency } from '../utils';
+import { StoreComparisonPanel } from './StoreComparisonPanel';
 
 // Helper to normalize store names across variants
 export function normalizeStoreName(rawName) {
@@ -47,7 +48,11 @@ export function CentralOperativaView({
   onEditRecord,
   currentUser,
   onExportPDF,
-  onNavigateTab
+  onNavigateTab,
+  stores = [],
+  supervisors = [],
+  storeMap = {},
+  supervisorMap = {}
 }) {
   const isGuest = currentUser?.role === 'guest';
 
@@ -329,11 +334,7 @@ export function CentralOperativaView({
       <div className="flex flex-wrap items-center gap-2">
         {[
           { id: 'indicadores', label: 'Indicadores' },
-          { 
-            id: 'comparar', 
-            label: 'Comparar periodos', 
-            action: () => onNavigateTab ? onNavigateTab('storeComparison') : setActiveTab('comparar') 
-          },
+          { id: 'comparar', label: 'Comparar periodos' },
           { id: 'importar', label: 'Importar Excel', action: onOpenImport },
           { id: 'prioridades', label: 'Prioridades' },
           { id: 'incidencias', label: 'Incidencias' },
@@ -688,6 +689,21 @@ export function CentralOperativaView({
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: COMPARAR PERIODOS */}
+      {activeTab === 'comparar' && (
+        <div className="space-y-6">
+          <StoreComparisonPanel
+            datasets={datasets}
+            availablePeriods={availablePeriods}
+            stores={stores}
+            supervisors={supervisors}
+            storeMap={storeMap}
+            supervisorMap={supervisorMap}
+            thresholds={thresholds}
+          />
         </div>
       )}
 

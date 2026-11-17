@@ -1063,6 +1063,10 @@ export function OperationalDashboard({
             currentUser={currentUser}
             onExportPDF={handleExportPDF}
             onNavigateTab={setActiveTab}
+            stores={stores}
+            supervisors={supervisors}
+            storeMap={storeMap}
+            supervisorMap={supervisorMap}
           />
         </div>
       ) : activeTab === 'table' ? (
