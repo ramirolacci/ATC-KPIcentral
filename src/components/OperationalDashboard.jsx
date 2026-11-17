@@ -14,6 +14,7 @@ import { ModalWrapper } from './ModalWrapper';
 import { exportOperationalKPItoPDF, exportOperationalComparisonPDF } from '../utils/pdfExport';
 import { OperationalCharts } from './OperationalCharts';
 import { StoreComparisonPanel } from './StoreComparisonPanel';
+import { CentralOperativaView } from './CentralOperativaView';
 
 export function OperationalDashboard({
   datasets = {},
@@ -32,7 +33,8 @@ export function OperationalDashboard({
   onReassignStore,
   thresholds,
   currentUser,
-  onOpenImport
+  onOpenImport,
+  onEditRecord
 }) {
   const isGuest = currentUser?.role === 'guest';
   // Drag and Drop State for store reassignment across supervisors
@@ -53,7 +55,7 @@ export function OperationalDashboard({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('confirmadas');
   const [sortAsc, setSortAsc] = useState(false);
-  const [activeTab, setActiveTab] = useState('table'); // 'table' | 'grouped' | 'comparison'
+  const [activeTab, setActiveTab] = useState('central'); // 'central' | 'table' | 'grouped' | 'charts' | 'storeComparison' | 'comparison'
   const [filterOnlyCritical, setFilterOnlyCritical] = useState(false);
 
   // Multi-selection state
@@ -935,6 +937,16 @@ export function OperationalDashboard({
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <div className="inline-flex rounded-xl bg-slate-900/80 p-1 border border-slate-800/80 shadow-inner">
           <button
+            onClick={() => setActiveTab('central')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'central'
+                ? 'bg-[#831843] text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/40'
+            }`}
+          >
+            <span>Central Operativa</span>
+          </button>
+          <button
             onClick={() => setActiveTab('table')}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer ${
               activeTab === 'table'
@@ -1038,7 +1050,21 @@ export function OperationalDashboard({
       </div>
 
       {/* View Content */}
-      {activeTab === 'table' ? (
+      {activeTab === 'central' ? (
+        <div className="op-view-content">
+          <CentralOperativaView
+            datasets={datasets}
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={onPeriodChange}
+            availablePeriods={availablePeriods}
+            thresholds={thresholds}
+            onOpenImport={onOpenImport}
+            onEditRecord={onEditRecord}
+            currentUser={currentUser}
+            onExportPDF={handleExportPDF}
+          />
+        </div>
+      ) : activeTab === 'table' ? (
         <div className="space-y-3">
           {/* Multi-selection Action Bar */}
           {!isGuest && selectedIndexes.size > 0 && (

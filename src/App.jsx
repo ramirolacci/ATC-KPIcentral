@@ -357,6 +357,47 @@ export default function App() {
     }
   };
 
+  // Edit / update a store record inside the active period
+  const handleEditRecord = async (period, updatedItem) => {
+    if (currentUser?.role === 'guest') return;
+    if (!datasets[period] || !datasets[period].records || !updatedItem) return;
+
+    const currentRecords = datasets[period].records.map((rec) => {
+      const matchStore = rec.tienda.toLowerCase().trim() === updatedItem.tienda.toLowerCase().trim() ||
+        (updatedItem.tienda === 'Barrancas' && rec.tienda.toLowerCase().includes('barrancas')) ||
+        (updatedItem.tienda === 'Devoto' && rec.tienda.toLowerCase().includes('devoto')) ||
+        (updatedItem.tienda === 'Paternal' && rec.tienda.toLowerCase().includes('paternal'));
+      const matchCanal = rec.canal === updatedItem.canal || 
+        ((rec.canal === 'PEYA' || rec.canal === 'PedidosYa') && (updatedItem.canal === 'PEYA' || updatedItem.canal === 'PedidosYa'));
+      
+      if (matchStore && matchCanal) {
+        return {
+          ...rec,
+          confirmadas: updatedItem.confirmadas ?? rec.confirmadas,
+          disponibilidad: updatedItem.disponibilidad ?? rec.disponibilidad,
+          cancelacionesPct: updatedItem.cancelacionesPct ?? rec.cancelacionesPct,
+          reclamosPct: updatedItem.reclamosPct ?? rec.reclamosPct,
+          demorasPct: updatedItem.demorasPct ?? rec.demorasPct
+        };
+      }
+      return rec;
+    });
+
+    const next = {
+      ...datasets,
+      [period]: {
+        ...datasets[period],
+        records: currentRecords
+      }
+    };
+    setDatasets(next);
+    localStorage.setItem(LS_DATA_KEY, JSON.stringify(next));
+
+    if (isSupabaseConfigured) {
+      await updatePeriodRecordsInCloud(period, currentRecords);
+    }
+  };
+
   // If user is not logged in, show elegant LoginScreen
   if (!currentUser) {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
@@ -404,6 +445,7 @@ export default function App() {
               thresholds={thresholds}
               currentUser={currentUser}
               onOpenImport={() => setIsImportOpen(true)}
+              onEditRecord={(item) => handleEditRecord(selectedPeriod, item)}
             />
           ) : (
             <ReviewsDashboard
