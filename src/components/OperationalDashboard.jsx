@@ -1062,6 +1062,7 @@ export function OperationalDashboard({
             onEditRecord={onEditRecord}
             currentUser={currentUser}
             onExportPDF={handleExportPDF}
+            onNavigateTab={setActiveTab}
           />
         </div>
       ) : activeTab === 'table' ? (
