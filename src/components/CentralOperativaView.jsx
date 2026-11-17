@@ -334,24 +334,13 @@ export function CentralOperativaView({
       <div className="flex flex-wrap items-center gap-2">
         {[
           { id: 'indicadores', label: 'Indicadores' },
-          { id: 'comparar', label: 'Comparar periodos' },
-          { id: 'importar', label: 'Importar Excel', action: onOpenImport },
-          { id: 'prioridades', label: 'Prioridades' },
-          { id: 'incidencias', label: 'Incidencias' },
-          { id: 'calendario', label: 'Calendario' },
-          { id: 'textos', label: 'Textos para copiar' }
+          { id: 'comparar', label: 'Comparar periodos' }
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => {
-                if (tab.action) {
-                  tab.action();
-                } else {
-                  setActiveTab(tab.id);
-                }
-              }}
+              onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer ${
                 isActive
                   ? 'bg-rose-900/90 text-rose-100 border border-rose-500/60 shadow-md shadow-rose-950/50 ring-2 ring-rose-500/20 font-bold'
