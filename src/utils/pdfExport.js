@@ -432,6 +432,205 @@ export async function exportOperationalKPItoPDF({
 }
 
 /**
+ * Exports the 2-period store comparison panel to an executive PDF report.
+ */
+export async function exportStoreComparisonPanelPDF({
+  periodA = '',
+  periodB = '',
+  comparisonSummary = {},
+  storeComparisons = [],
+  selectedCanal = 'ALL',
+  selectedStore = 'ALL',
+  supervisorMap = {}
+}) {
+  if (!storeComparisons || storeComparisons.length === 0) {
+    alert('No hay comparaciones disponibles para exportar.');
+    return;
+  }
+
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'pt',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 36;
+
+  // Header background
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, pageWidth, 74, 'F');
+
+  // Gold/Amber accent line
+  doc.setFillColor(245, 158, 11); // amber-500
+  doc.rect(0, 72, pageWidth, 2.5, 'F');
+
+  const logoInfo = await getBase64ImageFromUrl(`${import.meta.env.BASE_URL}Logo_Mi_Gusto_2025.png`);
+  let titleX = margin;
+  if (logoInfo?.dataURL) {
+    const logoRatio = logoInfo.width / logoInfo.height;
+    const targetHeight = 36;
+    const targetWidth = targetHeight * logoRatio;
+    doc.addImage(logoInfo.dataURL, 'PNG', margin, 18, targetWidth, targetHeight);
+    titleX = margin + targetWidth + 16;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Comparativa de Sucursales Entre Períodos', titleX, 36);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Período Base: ${periodA}  vs  Período Actual: ${periodB} | Filtros: Canal [${selectedCanal}] - Sucursal [${selectedStore}]`, titleX, 52);
+
+  // Executive summary cards banner
+  const startY = 88;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(margin, startY, pageWidth - margin * 2, 44, 6, 6, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(margin, startY, pageWidth - margin * 2, 44, 6, 6, 'D');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+
+  const colW = (pageWidth - margin * 2) / 4;
+  // Card 1
+  doc.text(`Volumen Pedidos: ${comparisonSummary.totOrdersB?.toLocaleString('es-AR') || 0}`, margin + 12, startY + 18);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Base: ${comparisonSummary.totOrdersA?.toLocaleString('es-AR') || 0} (${comparisonSummary.diffOrders >= 0 ? '+' : ''}${comparisonSummary.pctOrders?.toFixed(1) || 0}%)`, margin + 12, startY + 32);
+
+  // Card 2
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Demoras Promedio: ${comparisonSummary.demPctB?.toFixed(2) || 0}%`, margin + colW + 12, startY + 18);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Base: ${comparisonSummary.demPctA?.toFixed(2) || 0}% (${comparisonSummary.diffDemPct <= 0 ? 'Mejoró ' : 'Subió '}${comparisonSummary.diffDemPct?.toFixed(2) || 0} pp)`, margin + colW + 12, startY + 32);
+
+  // Card 3
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Tasa Reclamos: ${comparisonSummary.recPctB?.toFixed(2) || 0}%`, margin + colW * 2 + 12, startY + 18);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Base: ${comparisonSummary.recPctA?.toFixed(2) || 0}% (${comparisonSummary.diffRecPct <= 0 ? 'Mejoró ' : 'Aumentó '}${comparisonSummary.diffRecPct?.toFixed(2) || 0} pp)`, margin + colW * 2 + 12, startY + 32);
+
+  // Card 4
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Costo Reclamos: $ ${Math.round(comparisonSummary.totRecCostoB || 0).toLocaleString('es-AR')}`, margin + colW * 3 + 12, startY + 18);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Base: $ ${Math.round(comparisonSummary.totRecCostoA || 0).toLocaleString('es-AR')}`, margin + colW * 3 + 12, startY + 32);
+
+  // Table rows
+  const tableData = storeComparisons.map((sc, idx) => [
+    idx + 1,
+    sc.canal,
+    sc.tienda,
+    sc.ordersA.toLocaleString('es-AR'),
+    sc.ordersB.toLocaleString('es-AR'),
+    `${sc.ordersDiff >= 0 ? '+' : ''}${sc.ordersDiff.toLocaleString('es-AR')}`,
+    `${sc.demPctA.toFixed(1)}%`,
+    `${sc.demPctB.toFixed(1)}%`,
+    `${sc.demDiff >= 0 ? '+' : ''}${sc.demDiff.toFixed(2)} pp`,
+    `${sc.recPctA.toFixed(1)}%`,
+    `${sc.recPctB.toFixed(1)}%`,
+    `${sc.recDiff >= 0 ? '+' : ''}${sc.recDiff.toFixed(2)} pp`,
+    `${sc.dispA.toFixed(1)}%`,
+    `${sc.dispB.toFixed(1)}%`
+  ]);
+
+  autoTable(doc, {
+    startY: startY + 54,
+    head: [
+      [
+        { content: '#', rowSpan: 2 },
+        { content: 'Canal', rowSpan: 2 },
+        { content: 'Sucursal', rowSpan: 2 },
+        { content: 'Órdenes Confirmadas', colSpan: 3, styles: { halign: 'center' } },
+        { content: '% Demoras', colSpan: 3, styles: { halign: 'center' } },
+        { content: '% Reclamos', colSpan: 3, styles: { halign: 'center' } },
+        { content: 'Disponibilidad', colSpan: 2, styles: { halign: 'center' } }
+      ],
+      [
+        'Base', 'Actual', 'Var.',
+        'Base', 'Actual', 'Var. pp',
+        'Base', 'Actual', 'Var. pp',
+        'Base', 'Actual'
+      ]
+    ],
+    body: tableData,
+    theme: 'plain',
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 3.5,
+      textColor: [30, 41, 59],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5
+    },
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 7,
+      halign: 'center',
+      cellPadding: 4
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    columnStyles: {
+      0: { cellWidth: 20, halign: 'center' },
+      1: { cellWidth: 50, fontStyle: 'bold' },
+      2: { cellWidth: 85, fontStyle: 'bold' },
+      3: { halign: 'right' },
+      4: { halign: 'right', fontStyle: 'bold' },
+      5: { halign: 'right' },
+      6: { halign: 'right' },
+      7: { halign: 'right', fontStyle: 'bold' },
+      8: { halign: 'right' },
+      9: { halign: 'right' },
+      10: { halign: 'right', fontStyle: 'bold' },
+      11: { halign: 'right' },
+      12: { halign: 'right' },
+      13: { halign: 'right' }
+    },
+    didDrawPage: () => {
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, pageHeight - 26, pageWidth - margin, pageHeight - 26);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text('Mi Gusto - Departamento de Sistemas | Comparativa entre Períodos', margin, pageHeight - 14);
+    }
+  });
+
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 14, { align: 'right' });
+  }
+
+  doc.save(`Comparativa_${periodA.replace(/\s+/g, '_')}_vs_${periodB.replace(/\s+/g, '_')}.pdf`);
+}
+
+/**
  * Exports a high-impact, executive multi-period comparison report to PDF.
  * Perfect for presentations ("bonito para presentar").
  */

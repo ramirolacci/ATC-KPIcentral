@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
   TrendingUp, TrendingDown, ArrowRight, Store, Calendar,
-  CheckCircle2, AlertTriangle, AlertCircle, ChevronDown, Award, Search, Filter
+  CheckCircle2, AlertTriangle, AlertCircle, ChevronDown, Award, Search, Filter, Download
 } from 'lucide-react';
 import { fmtInt, fmtCurrency, fmtPct, getMetricStatus } from '../utils';
+import { exportStoreComparisonPanelPDF } from '../utils/pdfExport';
 
 export function StoreComparisonPanel({
   datasets = {},
@@ -201,6 +202,27 @@ export function StoreComparisonPanel({
     };
   }, [storeComparisons]);
 
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      await exportStoreComparisonPanelPDF({
+        periodA,
+        periodB,
+        comparisonSummary,
+        storeComparisons: filteredComparisons,
+        selectedCanal,
+        selectedStore,
+        supervisorMap
+      });
+    } catch (e) {
+      console.error('Error al exportar comparativa de tiendas a PDF:', e);
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header and Period Selectors */}
@@ -217,6 +239,21 @@ export function StoreComparisonPanel({
             <p className="text-xs sm:text-sm text-slate-400">
               Seleccioná dos fechas, semanas o cierres de mes para contrastar el progreso de cada sucursal
             </p>
+          </div>
+
+          <div>
+            <button
+              onClick={handleExportPDF}
+              disabled={isExportingPDF || filteredComparisons.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isExportingPDF ? (
+                <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>{isExportingPDF ? 'Generando PDF...' : 'Descargar Comparativa PDF'}</span>
+            </button>
           </div>
         </div>
 
