@@ -3,6 +3,146 @@ import autoTable from 'jspdf-autotable';
 import { getMetricStatus } from '../utils';
 
 /**
+ * Exports the Claims & Quality report for stores with claims into an executive PDF.
+ */
+export async function exportClaimsReportPDF({
+  stores = [],
+  period = '',
+  totalClaims = 0,
+  totalCost = 0,
+  supervisorMap = {}
+}) {
+  if (!stores || stores.length === 0) {
+    alert('No hay sucursales con reclamos para exportar.');
+    return;
+  }
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'pt',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 36;
+
+  // Header background
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, pageWidth, 74, 'F');
+
+  // Rose accent line
+  doc.setFillColor(244, 63, 94); // rose-500
+  doc.rect(0, 72, pageWidth, 2.5, 'F');
+
+  // Try logo
+  const logoInfo = await getBase64ImageFromUrl(`${import.meta.env.BASE_URL}Logo_Mi_Gusto_2025.png`);
+  let titleX = margin;
+  if (logoInfo?.dataURL) {
+    const logoRatio = logoInfo.width / logoInfo.height;
+    const targetHeight = 36;
+    const targetWidth = targetHeight * logoRatio;
+    doc.addImage(logoInfo.dataURL, 'PNG', margin, 18, targetWidth, targetHeight);
+    titleX = margin + targetWidth + 16;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Informe de Reclamos e Incidencias por Sucursal', titleX, 36);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Período: ${period} | Monitoreo de Calidad y Satisfacción del Cliente`, titleX, 52);
+
+  // Stats cards block
+  const startY = 88;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(margin, startY, pageWidth - margin * 2, 42, 6, 6, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(margin, startY, pageWidth - margin * 2, 42, 6, 6, 'D');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Sucursales con Reclamo: ${stores.length}`, margin + 16, startY + 18);
+  doc.text(`Total Reclamos Informados: ${totalClaims}`, margin + 175, startY + 18);
+  doc.text(`Costo Total Estimado: $ ${totalCost.toLocaleString('es-AR')}`, margin + 355, startY + 18);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Listado ordenado por mayor cantidad de reclamos y porcentaje sobre pedidos confirmados.', margin + 16, startY + 32);
+
+  // Table rows
+  const tableData = stores.map((s, idx) => [
+    idx + 1,
+    s.tienda,
+    s.supName || 'Sin asignar',
+    s.ordenes.toLocaleString('es-AR'),
+    s.reclamos.toLocaleString('es-AR'),
+    `${s.recPct.toFixed(2)}%`,
+    `$ ${Math.round(s.reclamosCosto || 0).toLocaleString('es-AR')}`,
+    s.canalesList || '-'
+  ]);
+
+  autoTable(doc, {
+    startY: startY + 52,
+    head: [['#', 'Sucursal', 'Supervisora', 'Órdenes', 'Reclamos', '% Recl.', 'Costo Recl.', 'Canales']],
+    body: tableData,
+    theme: 'plain',
+    styles: {
+      fontSize: 8,
+      cellPadding: 4.5,
+      textColor: [30, 41, 59],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5
+    },
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 7.5,
+      halign: 'left',
+      cellPadding: 5
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    columnStyles: {
+      0: { cellWidth: 24, halign: 'center' },
+      1: { cellWidth: 105, fontStyle: 'bold' },
+      2: { cellWidth: 95 },
+      3: { cellWidth: 55, halign: 'right' },
+      4: { cellWidth: 55, halign: 'right', fontStyle: 'bold', textColor: [225, 29, 72] },
+      5: { cellWidth: 55, halign: 'right' },
+      6: { cellWidth: 70, halign: 'right' },
+      7: { cellWidth: 65, halign: 'center' }
+    },
+    didDrawPage: () => {
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, pageHeight - 26, pageWidth - margin, pageHeight - 26);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text('Mi Gusto - Departamento de Sistemas | Informe Operativo de Calidad', margin, pageHeight - 14);
+    }
+  });
+
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 14, { align: 'right' });
+  }
+
+  doc.save(`Informe_Reclamos_${period.replace(/\s+/g, '_')}.pdf`);
+}
+
+/**
  * Loads an image from a URL and converts it to a base64 Data URL.
  */
 const getBase64ImageFromUrl = async (imageUrl) => {

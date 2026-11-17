@@ -6,9 +6,11 @@ import {
 import { 
   BarChart3, PieChart as PieIcon, TrendingUp, TrendingDown, AlertTriangle, 
   ShoppingBag, DollarSign, Award, Clock, ArrowDownRight, ArrowUpRight,
-  ChevronRight, Info, CheckCircle2, AlertCircle, Sparkles
+  ChevronRight, Info, CheckCircle2, AlertCircle, Sparkles, Download, MessageSquareWarning,
+  Search, Eye
 } from 'lucide-react';
 import { fmtCurrency, fmtInt, fmtPct, getMetricStatus } from '../utils';
+import { exportClaimsReportPDF } from '../utils/pdfExport';
 
 // PedidosYa signature branding palette
 // Characteristic: Clean, modern, bright red/coral accent, rounded cards, comparative badges, stacked progress
@@ -270,6 +272,68 @@ export function OperationalCharts({
       .slice(0, topStoreLimit);
   }, [records, topStoreLimit]);
 
+  // Aggregated Stores with Claims (Reclamos)
+  const storesWithClaims = useMemo(() => {
+    const map = {};
+    records.forEach((r) => {
+      const tienda = r.tienda;
+      if (!map[tienda]) {
+        const supId = storeMap[tienda.toLowerCase()];
+        const sup = supervisorMap[supId];
+        map[tienda] = {
+          tienda,
+          ordenes: 0,
+          reclamos: 0,
+          reclamosCosto: 0,
+          canales: new Set(),
+          supName: sup?.name || 'Sin asignar',
+          supColor: sup?.color || '#94a3b8'
+        };
+      }
+      map[tienda].ordenes += (r.confirmadas || 0);
+      map[tienda].reclamos += (r.reclamos || 0);
+      map[tienda].reclamosCosto += (r.reclamosCosto || 0);
+      if (r.reclamos > 0) {
+        map[tienda].canales.add(r.canal === 'PedidosYa' ? 'PEYA' : r.canal);
+      }
+    });
+
+    return Object.values(map)
+      .filter((st) => st.reclamos > 0)
+      .map((st) => ({
+        ...st,
+        recPct: st.ordenes > 0 ? Number(((st.reclamos / st.ordenes) * 100).toFixed(2)) : 0,
+        canalesList: Array.from(st.canales).join(', ')
+      }))
+      .sort((a, b) => b.reclamos - a.reclamos || b.recPct - a.recPct);
+  }, [records, storeMap, supervisorMap]);
+
+  // Filtered claims search state
+  const [claimSearch, setClaimSearch] = useState('');
+  const [isExportingClaimsPDF, setIsExportingClaimsPDF] = useState(false);
+
+  const filteredStoresWithClaims = useMemo(() => {
+    if (!claimSearch.trim()) return storesWithClaims;
+    return storesWithClaims.filter(s => s.tienda.toLowerCase().includes(claimSearch.toLowerCase()));
+  }, [storesWithClaims, claimSearch]);
+
+  const handleDownloadClaimsPDF = async () => {
+    setIsExportingClaimsPDF(true);
+    try {
+      await exportClaimsReportPDF({
+        stores: storesWithClaims,
+        period: selectedPeriod || 'Período seleccionado',
+        totalClaims: currentMetrics.reclamos,
+        totalCost: currentMetrics.recCosto,
+        supervisorMap
+      });
+    } catch (e) {
+      console.error('Error al exportar PDF de reclamos:', e);
+    } finally {
+      setIsExportingClaimsPDF(false);
+    }
+  };
+
   // Global scale for the delay tier bars
   const maxDelayTierVal = useMemo(() => {
     return Math.max(...delayTiers.map(t => Math.max(t.prev, t.current)), 1);
@@ -484,9 +548,23 @@ export function OperationalCharts({
                   i
                 </div>
               </div>
-              <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20">
-                Costo {fmtCurrency(currentMetrics.recCosto)}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById('tabla-sucursales-reclamos');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                  title="Ver detalle de sucursales con reclamos"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>Ver sucursales</span>
+                </button>
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20">
+                  Costo {fmtCurrency(currentMetrics.recCosto)}
+                </span>
+              </div>
             </div>
 
             <div className="mt-4 space-y-1">
@@ -811,6 +889,115 @@ export function OperationalCharts({
           </div>
         </div>
 
+      </div>
+
+      {/* Row 3: Sucursales con Reclamos e Incidencias con Descarga PDF */}
+      <div id="tabla-sucursales-reclamos" className="bg-slate-900/90 rounded-3xl p-6 border border-slate-800/90 shadow-2xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <MessageSquareWarning className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base sm:text-lg font-black text-white tracking-tight">
+                  Sucursales con Reclamos
+                </h4>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  {storesWithClaims.length} sucursales afectadas
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Desglose detallado de reclamos de clientes, costo económico y canales impactados en el período.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar sucursal..."
+                value={claimSearch}
+                onChange={(e) => setClaimSearch(e.target.value)}
+                className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 w-44 sm:w-52"
+              />
+            </div>
+
+            <button
+              onClick={handleDownloadClaimsPDF}
+              disabled={isExportingClaimsPDF || storesWithClaims.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/25 transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isExportingClaimsPDF ? (
+                <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>{isExportingClaimsPDF ? 'Generando PDF...' : 'Descargar Informe Reclamos PDF'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Table of stores with claims */}
+        {filteredStoresWithClaims.length === 0 ? (
+          <div className="py-8 text-center text-slate-500 text-xs">
+            {claimSearch ? 'No se encontraron sucursales con reclamos que coincidan con la búsqueda.' : '¡Excelente! Ninguna sucursal registra reclamos en este período.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto no-scrollbar rounded-2xl border border-slate-800/80">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-950 text-slate-400 uppercase text-[10px] font-extrabold tracking-wider border-b border-slate-800">
+                  <th className="p-3.5">#</th>
+                  <th className="p-3.5">Sucursal</th>
+                  <th className="p-3.5">Supervisora</th>
+                  <th className="p-3.5 text-right">Órdenes</th>
+                  <th className="p-3.5 text-right text-rose-400">Reclamos</th>
+                  <th className="p-3.5 text-right">% Reclamos</th>
+                  <th className="p-3.5 text-right">Costo Reclamos</th>
+                  <th className="p-3.5 text-center">Canales con Reclamo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-mono-numbers">
+                {filteredStoresWithClaims.map((st, idx) => (
+                  <tr key={st.tienda} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="p-3.5 text-slate-500 font-bold">{idx + 1}</td>
+                    <td className="p-3.5 font-sans font-bold text-white">{st.tienda}</td>
+                    <td className="p-3.5 font-sans text-slate-300">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.supColor }} />
+                        {st.supName}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-right text-slate-200">{fmtInt(st.ordenes)}</td>
+                    <td className="p-3.5 text-right font-extrabold text-rose-400">
+                      {fmtInt(st.reclamos)}
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${
+                        st.recPct > 2.5
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : st.recPct > 1.5
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'text-slate-300'
+                      }`}>
+                        {st.recPct.toFixed(2)}%
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-right font-bold text-amber-400">
+                      {fmtCurrency(st.reclamosCosto)}
+                    </td>
+                    <td className="p-3.5 text-center font-sans text-[11px] text-slate-400">
+                      {st.canalesList}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
     </div>
