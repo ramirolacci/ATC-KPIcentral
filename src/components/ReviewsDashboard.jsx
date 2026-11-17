@@ -90,6 +90,7 @@ export function ReviewsDashboard({ supervisors, stores, currentUser }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [reviewToDelete, setReviewToDelete] = useState(null);
+  const [isDeleteMonthModalOpen, setIsDeleteMonthModalOpen] = useState(false);
 
   const reviewsContainerRef = useRef(null);
 
@@ -254,6 +255,17 @@ export function ReviewsDashboard({ supervisors, stores, currentUser }) {
                 placeholder="Seleccionar mes"
                 className="w-44 sm:w-52"
               />
+              {!isGuest && (
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteMonthModalOpen(true)}
+                  disabled={!selectedMonth || !reviewsData[selectedMonth]}
+                  className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/10 transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={`Eliminar mes completo (${selectedMonth}) para recargar`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Canal Switcher - Modern Segmented Control */}
@@ -780,6 +792,67 @@ export function ReviewsDashboard({ supervisors, stores, currentUser }) {
               className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition-all shadow-md shadow-rose-950/40 cursor-pointer"
             >
               Eliminar registro
+            </button>
+          </div>
+        </div>
+      </ModalWrapper>
+
+      {/* Confirmation Modal: Delete Whole Month */}
+      <ModalWrapper
+        isOpen={isDeleteMonthModalOpen}
+        onClose={() => setIsDeleteMonthModalOpen(false)}
+        className="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Eliminar Mes de Reseñas
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Acción destructiva
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 space-y-2">
+            <p>
+              ¿Estás seguro de que deseas eliminar completamente el mes <strong className="text-amber-400 font-bold">{selectedMonth}</strong>?
+            </p>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Se eliminarán todas las calificaciones registradas para todas las sucursales y canales de este mes ({reviewsData[selectedMonth]?.length || 0} registros) para que puedas volver a cargarlo limpio.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => setIsDeleteMonthModalOpen(false)}
+              className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const updated = { ...reviewsData };
+                delete updated[selectedMonth];
+                const remainingMonths = Object.keys(updated);
+                setReviewsData(updated);
+                localStorage.setItem('mg_kpi_reviews_v2', JSON.stringify(updated));
+                if (remainingMonths.length > 0) {
+                  setSelectedMonth(remainingMonths[remainingMonths.length - 1]);
+                } else {
+                  setSelectedMonth('');
+                }
+                setIsDeleteMonthModalOpen(false);
+              }}
+              className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition-all shadow-md shadow-rose-950/40 cursor-pointer"
+            >
+              Eliminar mes completo
             </button>
           </div>
         </div>

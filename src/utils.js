@@ -74,13 +74,18 @@ export function cleanPct(v, defaultVal = 0) {
   if (v === null || v === undefined || v === '-' || v === '') return defaultVal;
   if (typeof v === 'number') {
     if (isNaN(v)) return defaultVal;
-    return v <= 1.0 ? v * 100 : v;
+    // In Excel, percentages stored as real decimals are > 0 and < 1.0 (e.g. 0.025 for 2.5%)
+    // An integer 1, 2, 3 or 0 in a column should not be blindly multiplied if it's already an integer percentage or count
+    return (v > 0 && v < 1.0) ? v * 100 : v;
   }
-  let s = String(v).replace(/[$€£\s%]/g, '').trim();
+  const rawStr = String(v).trim();
+  const hasPctSymbol = rawStr.includes('%');
+  let s = rawStr.replace(/[$€£\s%]/g, '').trim();
   if (s.includes(',')) s = s.replace(',', '.');
   const parsed = parseFloat(s);
   if (isNaN(parsed)) return defaultVal;
-  return parsed <= 1.0 ? parsed * 100 : parsed;
+  if (hasPctSymbol) return parsed;
+  return (parsed > 0 && parsed < 1.0) ? parsed * 100 : parsed;
 }
 
 // Format numbers for display
@@ -128,23 +133,29 @@ function parseHeaders(headersRow) {
   const colTienda = findCol(h => h.includes('tienda') || h.includes('sucursal'));
   const colConfirmadas = findCol(h => h.includes('confirmad'));
 
-  let colCancCant = findCol(h => (h.includes('cancel') && !h.includes('%') && (h.includes('órdenes') || h.includes('ordenes') || h.includes('cant'))));
-  let colCancPct = findCol(h => h.includes('cancel') && h.includes('%'));
-  if (colCancCant === -1) {
+  // Cancelaciones: Cantidad vs %
+  let colCancCant = findCol(h => h.includes('cancel') && !h.includes('%') && (h.includes('órdenes') || h.includes('ordenes') || h.includes('cant') || h.includes('pedidos')));
+  let colCancPct = findCol(h => h.includes('cancel') && (h.includes('%') || h.includes('tasa') || h.includes('porcent')));
+  if (colCancCant === -1 && colCancPct === -1) {
     colCancCant = findCol(h => h.includes('cancel') && !h.includes('%'));
-  }
-  if (colCancPct === -1) {
-    colCancPct = findCol(h => h.includes('cancel') && h.includes('%'));
   }
 
   const colCancCosto = findCol(h => h.includes('cargo') || (h.includes('rechazo') && h.includes('$')));
 
-  let colRecCant = findCol(h => (h.includes('reclam') && !h.includes('%') && !h.includes('$') && (h.includes('cant') || h === 'reclamos' || h.includes('órdenes'))));
-  let colRecPct = findCol(h => h.includes('reclam') && h.includes('%'));
-  let colRecCosto = findCol(h => (h.includes('reclam') && h.includes('$')) || h.includes('$ de reclamos') || h.includes('costo'));
+  // Reclamos: Cantidad vs %
+  let colRecCant = findCol(h => (h.includes('reclam') && !h.includes('%') && !h.includes('$') && (h.includes('cant') || h === 'reclamos' || h.includes('órdenes') || h.includes('pedidos'))));
+  let colRecPct = findCol(h => h.includes('reclam') && (h.includes('%') || h.includes('tasa') || h.includes('porcent')));
+  if (colRecCant === -1 && colRecPct === -1) {
+    colRecCant = findCol(h => h.includes('reclam') && !h.includes('%') && !h.includes('$'));
+  }
+  const colRecCosto = findCol(h => (h.includes('reclam') && h.includes('$')) || h.includes('$ de reclamos') || h.includes('costo'));
 
-  let colDemCant = findCol(h => (h.includes('demor') && !h.includes('%')));
+  // Demoras: Cantidad vs %
+  let colDemCant = findCol(h => (h.includes('demor') && !h.includes('%') && (h.includes('cant') || h.includes('pedidos') || h === 'demoras')));
   let colDemPct = findCol(h => (h.includes('demor') && h.includes('%')) || h.includes('awt'));
+  if (colDemCant === -1 && colDemPct === -1) {
+    colDemCant = findCol(h => h.includes('demor') && !h.includes('%'));
+  }
 
   let colDisp = findCol(h => h.includes('disponib'));
 
@@ -223,6 +234,34 @@ export async function parseUploadedExcel(file) {
             let dem_cant = mapping.colDemCant !== -1 ? cleanNum(r[mapping.colDemCant]) : 0;
             let dem_pct = mapping.colDemPct !== -1 ? cleanPct(r[mapping.colDemPct]) : 0;
             let disp = mapping.colDisp !== -1 ? cleanPct(r[mapping.colDisp], 100) : 100;
+
+            // Consistency reconciliation:
+            // 1. If only % column existed or was mapped, but its value looks like an integer count while count was 0:
+            if (canc_cant === 0 && canc_pct > 0) {
+              // If canc_pct is integer or >= 1 with confirmadas > 0, check if (canc_pct / confirmadas) makes sense as real count
+              if (confirmadas > 0 && canc_pct >= 1 && (canc_pct === Math.round(canc_pct) || canc_pct <= 100)) {
+                // If canc_pct === 100 and canc_costo > 0 or confirmadas > 10, it's 1 cancellation that was converted by old logic
+                const countCandidate = canc_pct === 100 ? 1 : Math.round(canc_pct);
+                canc_cant = countCandidate;
+                canc_pct = (countCandidate / confirmadas) * 100;
+              }
+            } else if (canc_cant > 0 && (canc_pct === 0 || mapping.colCancPct === -1)) {
+              canc_pct = confirmadas > 0 ? (canc_cant / confirmadas) * 100 : 0;
+            }
+
+            if (rec_cant === 0 && rec_pct > 0) {
+              if (confirmadas > 0) {
+                const countCandidate = rec_pct === 100 ? 1 : Math.round(rec_pct);
+                rec_cant = countCandidate;
+                rec_pct = (countCandidate / confirmadas) * 100;
+              }
+            } else if (rec_cant > 0 && (rec_pct === 0 || mapping.colRecPct === -1)) {
+              rec_pct = confirmadas > 0 ? (rec_cant / confirmadas) * 100 : 0;
+            }
+
+            if (dem_cant > 0 && (dem_pct === 0 || mapping.colDemPct === -1)) {
+              dem_pct = confirmadas > 0 ? (dem_cant / confirmadas) * 100 : 0;
+            }
 
             records.push({
               canal,
