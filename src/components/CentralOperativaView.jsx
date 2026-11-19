@@ -1,13 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Download, Plus, Settings2, Edit3, CheckCircle2, AlertTriangle, 
   ChevronDown, Calendar, Search, ArrowUpRight, ArrowDownRight,
   FileSpreadsheet, Filter, RefreshCw, Store, Check, AlertCircle,
   HelpCircle, Eye, EyeOff, Copy, CheckCheck, Clock, MessageSquareWarning,
-  Flame, CheckSquare, ListTodo, CalendarDays
+  Flame, CheckSquare, ListTodo, CalendarDays, Trash2
 } from 'lucide-react';
 import { fmtInt, fmtCurrency } from '../utils';
 import { StoreComparisonPanel } from './StoreComparisonPanel';
+import { RegisterIncidentModal } from './RegisterIncidentModal';
+import { fetchSettingFromCloud, saveSettingToCloud } from '../supabaseClient';
 
 // Helper to normalize store names across variants
 export function normalizeStoreName(rawName) {
@@ -70,6 +72,83 @@ export function CentralOperativaView({
 
   // Modal for editing record
   const [editingItem, setEditingItem] = useState(null);
+
+  // Modal for registering manual incident
+  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+
+  // Manual registered incidents state with LocalStorage and cloud sync
+  const LS_INCIDENTS_KEY = 'mg_kpi_registered_incidents_v1';
+  const [manualIncidents, setManualIncidents] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LS_INCIDENTS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  // Pull incidents from cloud on mount
+  useEffect(() => {
+    let mounted = true;
+    fetchSettingFromCloud('incidents').then((cloudIncidents) => {
+      if (mounted && Array.isArray(cloudIncidents) && cloudIncidents.length > 0) {
+        setManualIncidents(cloudIncidents);
+        try {
+          localStorage.setItem(LS_INCIDENTS_KEY, JSON.stringify(cloudIncidents));
+        } catch (e) {}
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const handleSaveIncident = (newInc) => {
+    if (isGuest) return;
+    setManualIncidents((prev) => {
+      const updated = [newInc, ...prev];
+      try {
+        localStorage.setItem(LS_INCIDENTS_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      saveSettingToCloud('incidents', updated);
+      return updated;
+    });
+  };
+
+  const handleDeleteIncident = (id) => {
+    if (isGuest) return;
+    setManualIncidents((prev) => {
+      const updated = prev.filter((inc) => inc.id !== id);
+      try {
+        localStorage.setItem(LS_INCIDENTS_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      saveSettingToCloud('incidents', updated);
+      return updated;
+    });
+  };
+
+  const handleUpdateIncidentStatus = (id, newStatus) => {
+    if (isGuest) return;
+    setManualIncidents((prev) => {
+      const updated = prev.map((inc) => inc.id === id ? { ...inc, estado: newStatus } : inc);
+      try {
+        localStorage.setItem(LS_INCIDENTS_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      saveSettingToCloud('incidents', updated);
+      return updated;
+    });
+  };
+
+  const [incidentFilterStatus, setIncidentFilterStatus] = useState('ALL');
+
+  const filteredManualIncidents = useMemo(() => {
+    if (incidentFilterStatus === 'ALL') return manualIncidents;
+    return manualIncidents.filter((inc) => inc.estado === incidentFilterStatus);
+  }, [manualIncidents, incidentFilterStatus]);
+
+  const abiertasCount = useMemo(() => manualIncidents.filter((i) => i.estado === 'Abierta').length, [manualIncidents]);
+  const enProcesoCount = useMemo(() => manualIncidents.filter((i) => i.estado === 'En proceso').length, [manualIncidents]);
+  const resueltasCount = useMemo(() => manualIncidents.filter((i) => i.estado === 'Resuelta').length, [manualIncidents]);
 
   // Compute previous period index/name automatically
   const periodIndex = availablePeriods.indexOf(selectedPeriod);
@@ -320,11 +399,11 @@ export function CentralOperativaView({
           </button>
           {!isGuest && (
             <button
-              onClick={onOpenImport}
+              onClick={activeTab === 'incidencias' ? () => setIsIncidentModalOpen(true) : onOpenImport}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-700 via-rose-800 to-rose-900 hover:from-rose-600 hover:to-rose-800 text-white border border-rose-500/40 text-xs font-bold shadow-md shadow-rose-950/40 transition-all duration-150 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Cargar indicadores</span>
+              <span>{activeTab === 'incidencias' ? 'Registrar incidencia' : 'Cargar indicadores'}</span>
             </button>
           )}
         </div>
@@ -752,52 +831,185 @@ export function CentralOperativaView({
       {/* TAB CONTENT 3: INCIDENCIAS */}
       {activeTab === 'incidencias' && (
         <div className="space-y-6">
-          <div className="bg-slate-900/90 rounded-2xl p-6 border border-slate-800/90 shadow-xl space-y-3">
+          <div className="bg-slate-900/90 rounded-2xl p-6 border border-slate-800/90 shadow-xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
                 <ListTodo className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-lg font-black text-white">Registro de Incidencias Operativas</h3>
-                <p className="text-xs text-slate-400">Detalle ordenado de reclamos de clientes, cancelaciones y demoras elevadas.</p>
+                <p className="text-xs text-slate-400">Seguimiento de desvíos, demoras y novedades cargadas por sucursal y canal.</p>
               </div>
             </div>
+
+            {/* Filter Pills by Status */}
+            {manualIncidents.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
+                {[
+                  { id: 'ALL', label: 'Todas', count: manualIncidents.length, color: 'text-slate-200' },
+                  { id: 'Abierta', label: 'Abiertas', count: abiertasCount, dot: 'bg-rose-500' },
+                  { id: 'En proceso', label: 'En proceso', count: enProcesoCount, dot: 'bg-amber-400' },
+                  { id: 'Resuelta', label: 'Resueltas', count: resueltasCount, dot: 'bg-emerald-400' }
+                ].map((f) => {
+                  const isSelected = incidentFilterStatus === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setIncidentFilterStatus(f.id)}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-rose-900/80 text-rose-100 border border-rose-500/50 shadow-md shadow-rose-950/40'
+                          : 'bg-slate-950/60 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-800'
+                      }`}
+                    >
+                      {f.dot && <span className={`w-2 h-2 rounded-full ${f.dot}`} />}
+                      <span>{f.label}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 font-mono">
+                        {f.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="bg-slate-900/90 rounded-2xl border border-slate-800/90 shadow-xl overflow-hidden">
-            <div className="overflow-x-auto no-scrollbar">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400 uppercase text-[10px] font-extrabold tracking-wider border-b border-slate-800">
-                    <th className="p-3.5">#</th>
-                    <th className="p-3.5">Sucursal</th>
-                    <th className="p-3.5">Canal</th>
-                    <th className="p-3.5 text-right">Órdenes</th>
-                    <th className="p-3.5 text-right text-rose-400">Reclamos</th>
-                    <th className="p-3.5 text-right">% Reclamos</th>
-                    <th className="p-3.5 text-right">Cancelaciones</th>
-                    <th className="p-3.5 text-right">Demoras</th>
-                    <th className="p-3.5 text-right">% Demoras</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono-numbers">
-                  {incidenciasList.map((inc, i) => (
-                    <tr key={i} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="p-3.5 text-slate-500">{i + 1}</td>
-                      <td className="p-3.5 font-sans font-bold text-white">{inc.store}</td>
-                      <td className="p-3.5 font-sans text-slate-300">{inc.canal}</td>
-                      <td className="p-3.5 text-right text-slate-200">{fmtInt(inc.confirmadas)}</td>
-                      <td className="p-3.5 text-right font-extrabold text-rose-400">{fmtInt(inc.reclamos)}</td>
-                      <td className="p-3.5 text-right">{inc.reclamosPct.toFixed(2)}%</td>
-                      <td className="p-3.5 text-right text-amber-300">{fmtInt(inc.cancelaciones)}</td>
-                      <td className="p-3.5 text-right text-slate-200">{fmtInt(inc.demoras)}</td>
-                      <td className="p-3.5 text-right font-bold text-rose-300">{inc.demorasPct.toFixed(2)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* INCIDENCIAS CARDS GRID */}
+          {manualIncidents.length === 0 ? (
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-12 text-center space-y-3 shadow-xl">
+              <div className="w-14 h-14 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-center text-amber-400 mx-auto shadow-inner">
+                <ListTodo className="w-7 h-7" />
+              </div>
+              <h4 className="text-base font-bold text-slate-100">
+                No hay incidencias registradas aún
+              </h4>
+              <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                Utiliza el botón superior <strong className="text-rose-400">"+ Registrar Incidencia"</strong> para asentar desvíos en cocina, demoras o incidencias operativas en formato de tarjetas.
+              </p>
             </div>
-          </div>
+          ) : filteredManualIncidents.length === 0 ? (
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-8 text-center space-y-2">
+              <p className="text-sm font-bold text-slate-300">
+                No hay incidencias con el estado "{incidentFilterStatus}"
+              </p>
+              <button
+                type="button"
+                onClick={() => setIncidentFilterStatus('ALL')}
+                className="text-xs font-bold text-rose-400 hover:underline cursor-pointer"
+              >
+                Ver todas las incidencias ({manualIncidents.length})
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
+              {filteredManualIncidents.map((inc) => {
+                const formattedDate = inc.fecha && inc.fecha.includes('-')
+                  ? `${inc.fecha.split('-')[2]}/${inc.fecha.split('-')[1]}/${inc.fecha.split('-')[0]}`
+                  : (inc.fecha || 'Sin fecha');
+
+                return (
+                  <div
+                    key={inc.id}
+                    className="bg-slate-900/90 rounded-2xl border border-slate-800/90 hover:border-slate-700/90 p-5 shadow-xl transition-all duration-200 flex flex-col justify-between space-y-4 group hover:-translate-y-0.5"
+                  >
+                    {/* Card Header: Store, Date & Status */}
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Store className="w-4 h-4 text-rose-400 shrink-0" />
+                          <h4 className="font-extrabold text-base text-white tracking-tight">
+                            {inc.sucursal}
+                          </h4>
+                        </div>
+                        <span className="text-[11px] font-mono text-slate-400 block mt-1 flex items-center gap-1.5">
+                          <Calendar className="w-3 h-3 text-slate-500" />
+                          {formattedDate}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {!isGuest ? (
+                          <select
+                            value={inc.estado}
+                            onChange={(e) => handleUpdateIncidentStatus(inc.id, e.target.value)}
+                            className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border cursor-pointer outline-none transition-all shadow-xs ${
+                              inc.estado === 'Abierta' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
+                              inc.estado === 'En proceso' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                              inc.estado === 'Resuelta' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                              'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            <option value="Abierta" className="bg-slate-900 text-white">Abierta</option>
+                            <option value="En proceso" className="bg-slate-900 text-white">En proceso</option>
+                            <option value="Resuelta" className="bg-slate-900 text-white">Resuelta</option>
+                            <option value="Cerrada" className="bg-slate-900 text-white">Cerrada</option>
+                          </select>
+                        ) : (
+                          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border ${
+                            inc.estado === 'Abierta' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
+                            inc.estado === 'En proceso' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                            inc.estado === 'Resuelta' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                            'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}>
+                            {inc.estado}
+                          </span>
+                        )}
+
+                        {!isGuest && (
+                          <button
+                            onClick={() => handleDeleteIncident(inc.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Eliminar incidencia"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card Body: App Badge & Incidencia Title */}
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                          <AlertCircle className="w-3 h-3" />
+                          Incidencia
+                        </span>
+                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold border ${
+                          inc.app === 'PedidosYa' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' :
+                          inc.app === 'Rappi' ? 'bg-orange-500/15 text-orange-300 border-orange-500/30' :
+                          inc.app === 'Mercado Delivery' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' :
+                          inc.app === 'TePido' ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' :
+                          'bg-slate-800 text-slate-300 border border-slate-700'
+                        }`}>
+                          {inc.app}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-white leading-snug">
+                        {inc.incidencia}
+                      </p>
+                    </div>
+
+                    {/* Card Footer: Observaciones */}
+                    {inc.observaciones ? (
+                      <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs text-slate-300 leading-relaxed font-normal">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                          Observaciones:
+                        </span>
+                        <p className="whitespace-pre-line text-slate-300 text-xs">
+                          {inc.observaciones}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded-xl bg-slate-950/30 border border-slate-800/40 text-[11px] text-slate-500 italic">
+                        Sin observaciones adicionales
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1009,6 +1221,14 @@ export function CentralOperativaView({
           </div>
         </div>
       )}
+
+      {/* Modal: Registrar Incidencia */}
+      <RegisterIncidentModal
+        isOpen={isIncidentModalOpen}
+        onClose={() => setIsIncidentModalOpen(false)}
+        onSaveIncident={handleSaveIncident}
+        stores={allStores.length > 0 ? allStores : stores.map((s) => (typeof s === 'string' ? s : s.name))}
+      />
     </div>
   );
 }
