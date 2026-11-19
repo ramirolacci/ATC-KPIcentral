@@ -334,7 +334,11 @@ export function CentralOperativaView({
       <div className="flex flex-wrap items-center gap-2">
         {[
           { id: 'indicadores', label: 'Indicadores' },
-          { id: 'comparar', label: 'Comparar periodos' }
+          { id: 'comparar', label: 'Comparar periodos' },
+          { id: 'prioridades', label: 'Prioridades' },
+          { id: 'incidencias', label: 'Incidencias' },
+          { id: 'calendario', label: 'Calendario' },
+          { id: 'textos', label: 'Textos para copiar' }
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
