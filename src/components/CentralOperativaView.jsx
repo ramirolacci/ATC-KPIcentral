@@ -1,14 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Download, Plus, Settings2, Edit3, CheckCircle2, AlertTriangle, 
-  ChevronDown, Calendar, Search, ArrowUpRight, ArrowDownRight,
+  ChevronDown, ChevronLeft, ChevronRight, Calendar, Search, ArrowUpRight, ArrowDownRight,
   FileSpreadsheet, Filter, RefreshCw, Store, Check, AlertCircle,
   HelpCircle, Eye, EyeOff, Copy, CheckCheck, Clock, MessageSquareWarning,
-  Flame, CheckSquare, ListTodo, CalendarDays, Trash2
+  Flame, CheckSquare, ListTodo, CalendarDays, Trash2, Smartphone, Sparkles
 } from 'lucide-react';
 import { fmtInt, fmtCurrency } from '../utils';
 import { StoreComparisonPanel } from './StoreComparisonPanel';
 import { RegisterIncidentModal } from './RegisterIncidentModal';
+import { ScheduleActivityModal } from './ScheduleActivityModal';
 import { fetchSettingFromCloud, saveSettingToCloud } from '../supabaseClient';
 
 // Helper to normalize store names across variants
@@ -38,6 +39,268 @@ const APPS = [
   { id: 'PEYA', label: 'PedidosYa', brandColor: '#f43f5e', accentBg: 'from-rose-500/10 to-transparent', border: 'border-rose-500/30', text: 'text-rose-400' },
   { id: 'Rappi', label: 'Rappi', brandColor: '#f97316', accentBg: 'from-orange-500/10 to-transparent', border: 'border-orange-500/30', text: 'text-orange-400' },
   { id: 'Mercado Delivery', label: 'Mercado Delivery', brandColor: '#f59e0b', accentBg: 'from-amber-500/10 to-transparent', border: 'border-amber-500/30', text: 'text-amber-400' }
+];
+
+/**
+ * Custom Month Picker Popover (Matches screenshots with Year navigation & 12-month grid)
+ */
+function MonthPickerPopover({ selectedYear, selectedMonth, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(selectedYear);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    setViewYear(selectedYear);
+  }, [selectedYear]);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const monthNamesLong = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
+
+  const monthShorts = [
+    'ene', 'feb', 'mar', 'abr',
+    'may', 'jun', 'jul', 'ago',
+    'sept', 'oct', 'nov', 'dic'
+  ];
+
+  const handleSelectMonth = (mIndex) => {
+    onChange(viewYear, mIndex);
+    setIsOpen(false);
+  };
+
+  const handleCurrentMonth = () => {
+    const now = new Date();
+    onChange(now.getFullYear(), now.getMonth());
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    onChange(2026, 10); // Default Noviembre 2026
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl border border-slate-700/80 bg-slate-950/90 hover:bg-slate-900 text-slate-100 hover:text-white text-xs font-semibold shadow-xs transition-all cursor-pointer min-w-[190px]"
+      >
+        <span className="capitalize">{monthNamesLong[selectedMonth]} de {selectedYear}</span>
+        <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-2 z-50 w-64 p-3.5 bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+          {/* Year selector */}
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+            <button
+              type="button"
+              onClick={() => setViewYear((y) => y - 1)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-bold text-white font-mono">{viewYear}</span>
+            <button
+              type="button"
+              onClick={() => setViewYear((y) => y + 1)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* 12 months grid */}
+          <div className="grid grid-cols-4 gap-1.5 py-1">
+            {monthShorts.map((short, idx) => {
+              const isSelected = viewYear === selectedYear && idx === selectedMonth;
+              return (
+                <button
+                  key={short}
+                  type="button"
+                  onClick={() => handleSelectMonth(idx)}
+                  className={`py-2 px-1 text-xs rounded-xl font-semibold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-rose-700 text-white font-bold shadow-md shadow-rose-950/50'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  {short}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-slate-800 text-[11px] font-semibold">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              Borrar
+            </button>
+            <button
+              type="button"
+              onClick={handleCurrentMonth}
+              className="text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+            >
+              Este mes
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Custom Styled Filter Dropdown for "Tipo de actividad" with badges & colors
+ */
+function CustomTipoFilterDropdown({ value, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const options = [
+    { value: 'ALL', label: 'Todos los tipos', dotColor: 'bg-slate-400' },
+    { value: 'Promoción', label: 'Promoción', dotColor: 'bg-purple-400' },
+    { value: 'Cierre', label: 'Cierre', dotColor: 'bg-amber-400' },
+    { value: 'Capacitación', label: 'Capacitación', dotColor: 'bg-sky-400' },
+    { value: 'Evento', label: 'Evento', dotColor: 'bg-emerald-400' },
+    { value: 'Reunión', label: 'Reunión', dotColor: 'bg-rose-400' },
+    { value: 'Otro', label: 'Otro', dotColor: 'bg-slate-400' }
+  ];
+
+  const selectedOpt = options.find((o) => o.value === value) || options[0];
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between gap-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30 cursor-pointer h-[38px] min-w-[155px] transition-all"
+      >
+        <div className="flex items-center gap-2 truncate">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${selectedOpt.dotColor}`} />
+          <span className="truncate">{selectedOpt.label}</span>
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1.5 w-52 p-1.5 bg-slate-900/95 border border-slate-700/80 rounded-xl shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-150 space-y-0.5">
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer text-left ${
+                  isSelected
+                    ? 'bg-rose-950/70 text-rose-200 border border-rose-500/40 font-bold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dotColor}`} />
+                  <span className="truncate">{opt.label}</span>
+                </div>
+                {isSelected && <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const INITIAL_CALENDAR_ACTIVITIES = [
+  {
+    id: 'act_seed_1',
+    actividad: 'Cierre Semanal de Métricas',
+    tipo: 'Cierre',
+    fecha: '2026-11-02',
+    hora: '11:00',
+    sucursal: 'Todas las sucursales',
+    app: 'Todas las apps',
+    observaciones: 'Consolidación de datos semanales de PEYA, Rappi y Mercado Delivery.',
+    createdAt: '2026-11-01T10:00:00Z'
+  },
+  {
+    id: 'act_seed_2',
+    actividad: 'Reunión de Supervisión',
+    tipo: 'Reunión',
+    fecha: '2026-11-03',
+    hora: '15:00',
+    sucursal: 'Todas las sucursales',
+    app: 'Todas las apps',
+    observaciones: 'Revisión de tiendas críticas con Damaris Burgos, Evelyn Cedrón y Tiendas Propias.',
+    createdAt: '2026-11-01T10:00:00Z'
+  },
+  {
+    id: 'act_seed_3',
+    actividad: 'Capacitación Operativa',
+    tipo: 'Capacitación',
+    fecha: '2026-11-13',
+    hora: '10:30',
+    sucursal: 'Ballester',
+    app: 'PedidosYa',
+    observaciones: 'Auditoría presencial y protocolo de reducción de demoras.',
+    createdAt: '2026-11-01T10:00:00Z'
+  },
+  {
+    id: 'act_seed_4',
+    actividad: 'Promo Black Friday 2x1',
+    tipo: 'Promoción',
+    fecha: '2026-11-20',
+    hora: '19:00',
+    sucursal: 'Todas las sucursales',
+    app: 'PedidosYa',
+    observaciones: 'Campaña especial 2x1 en empanadas seleccionadas durante el fin de semana.',
+    createdAt: '2026-11-01T10:00:00Z'
+  },
+  {
+    id: 'act_seed_5',
+    actividad: 'Cierre de Mes y Balance General',
+    tipo: 'Cierre',
+    fecha: '2026-11-30',
+    hora: '18:00',
+    sucursal: 'Todas las sucursales',
+    app: 'Todas las apps',
+    observaciones: 'Descarga de informe acumulado para gerencia y liquidación de costos.',
+    createdAt: '2026-11-01T10:00:00Z'
+  }
 ];
 
 export function CentralOperativaView({
@@ -149,6 +412,149 @@ export function CentralOperativaView({
   const abiertasCount = useMemo(() => manualIncidents.filter((i) => i.estado === 'Abierta').length, [manualIncidents]);
   const enProcesoCount = useMemo(() => manualIncidents.filter((i) => i.estado === 'En proceso').length, [manualIncidents]);
   const resueltasCount = useMemo(() => manualIncidents.filter((i) => i.estado === 'Resuelta').length, [manualIncidents]);
+
+  // Calendar State & Cloud Sync
+  const LS_CALENDAR_KEY = 'mg_kpi_calendar_activities_v1';
+  const [selectedCalendarYear, setSelectedCalendarYear] = useState(2026);
+  const [selectedCalendarMonth, setSelectedCalendarMonth] = useState(10); // 0-indexed, 10 = noviembre
+  const [calendarSearch, setCalendarSearch] = useState('');
+  const [calendarFilterTipo, setCalendarFilterTipo] = useState('ALL');
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [calendarModalInitialDate, setCalendarModalInitialDate] = useState('');
+  const [calendarModalInitialData, setCalendarModalInitialData] = useState(null);
+
+  const [calendarActivities, setCalendarActivities] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LS_CALENDAR_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_CALENDAR_ACTIVITIES;
+  });
+
+  // Pull calendar activities from Supabase cloud setting on mount
+  useEffect(() => {
+    let mounted = true;
+    fetchSettingFromCloud('calendar_activities').then((cloudActivities) => {
+      if (mounted && Array.isArray(cloudActivities) && cloudActivities.length > 0) {
+        setCalendarActivities(cloudActivities);
+        try {
+          localStorage.setItem(LS_CALENDAR_KEY, JSON.stringify(cloudActivities));
+        } catch (e) {}
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const handleSaveCalendarActivity = (newAct) => {
+    if (isGuest) return;
+    setCalendarActivities((prev) => {
+      const existingIdx = prev.findIndex((a) => a.id === newAct.id);
+      let updated;
+      if (existingIdx >= 0) {
+        updated = [...prev];
+        updated[existingIdx] = newAct;
+      } else {
+        updated = [newAct, ...prev];
+      }
+      try {
+        localStorage.setItem(LS_CALENDAR_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      saveSettingToCloud('calendar_activities', updated);
+      return updated;
+    });
+  };
+
+  const handleDeleteCalendarActivity = (id) => {
+    if (isGuest) return;
+    setCalendarActivities((prev) => {
+      const updated = prev.filter((a) => a.id !== id);
+      try {
+        localStorage.setItem(LS_CALENDAR_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      saveSettingToCloud('calendar_activities', updated);
+      return updated;
+    });
+  };
+
+  const handleDuplicateCalendarActivity = (act) => {
+    setCalendarModalInitialDate(act.fecha || '');
+    setCalendarModalInitialData({
+      ...act,
+      id: undefined,
+      actividad: `${act.actividad} (Copia)`
+    });
+    setIsCalendarModalOpen(true);
+  };
+
+  // Calculate calendar days & filtered activities for the active calendar view
+  const { calendarCells, currentMonthActivities } = useMemo(() => {
+    const daysInMonth = new Date(selectedCalendarYear, selectedCalendarMonth + 1, 0).getDate();
+    const firstDayOfWeek = new Date(selectedCalendarYear, selectedCalendarMonth, 1).getDay(); // 0 is Sun
+    const startOffset = (firstDayOfWeek + 6) % 7; // Mon=0, Sun=6
+    const daysInPrevMonth = new Date(selectedCalendarYear, selectedCalendarMonth, 0).getDate();
+
+    const cells = [];
+
+    // Leading days from previous month
+    for (let i = startOffset - 1; i >= 0; i--) {
+      cells.push({
+        dayNum: daysInPrevMonth - i,
+        isCurrentMonth: false,
+        dateStr: null
+      });
+    }
+
+    // Days in current month
+    for (let d = 1; d <= daysInMonth; d++) {
+      const padM = String(selectedCalendarMonth + 1).padStart(2, '0');
+      const padD = String(d).padStart(2, '0');
+      cells.push({
+        dayNum: d,
+        isCurrentMonth: true,
+        dateStr: `${selectedCalendarYear}-${padM}-${padD}`
+      });
+    }
+
+    // Trailing days to round to complete weeks
+    const remaining = (7 - (cells.length % 7)) % 7;
+    for (let n = 1; n <= remaining; n++) {
+      cells.push({
+        dayNum: n,
+        isCurrentMonth: false,
+        dateStr: null
+      });
+    }
+
+    // Filter activities for this month & search/tipo filters
+    const monthActs = calendarActivities.filter((act) => {
+      if (act.fecha) {
+        const [y, m] = act.fecha.split('-').map(Number);
+        if (y !== selectedCalendarYear || (m - 1) !== selectedCalendarMonth) {
+          return false;
+        }
+      }
+      if (calendarFilterTipo !== 'ALL' && act.tipo !== calendarFilterTipo) {
+        return false;
+      }
+      if (calendarSearch.trim()) {
+        const q = calendarSearch.toLowerCase();
+        const matchAct = act.actividad?.toLowerCase().includes(q);
+        const matchStore = act.sucursal?.toLowerCase().includes(q);
+        const matchTipo = act.tipo?.toLowerCase().includes(q);
+        const matchObs = act.observaciones?.toLowerCase().includes(q);
+        const matchApp = act.app?.toLowerCase().includes(q);
+        if (!matchAct && !matchStore && !matchTipo && !matchObs && !matchApp) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return { calendarCells: cells, currentMonthActivities: monthActs };
+  }, [selectedCalendarYear, selectedCalendarMonth, calendarActivities, calendarFilterTipo, calendarSearch]);
 
   // Compute previous period index/name automatically
   const periodIndex = availablePeriods.indexOf(selectedPeriod);
@@ -397,13 +803,15 @@ export function CentralOperativaView({
             <Download className="w-3.5 h-3.5 text-amber-400" />
             <span>Guardar como PDF</span>
           </button>
-          {!isGuest && (
+          {!isGuest && activeTab !== 'calendario' && (
             <button
               onClick={activeTab === 'incidencias' ? () => setIsIncidentModalOpen(true) : onOpenImport}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-700 via-rose-800 to-rose-900 hover:from-rose-600 hover:to-rose-800 text-white border border-rose-500/40 text-xs font-bold shadow-md shadow-rose-950/40 transition-all duration-150 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>{activeTab === 'incidencias' ? 'Registrar incidencia' : 'Cargar indicadores'}</span>
+              <span>
+                {activeTab === 'incidencias' ? 'Registrar incidencia' : 'Cargar indicadores'}
+              </span>
             </button>
           )}
         </div>
@@ -1016,58 +1424,347 @@ export function CentralOperativaView({
       {/* TAB CONTENT 4: CALENDARIO */}
       {activeTab === 'calendario' && (
         <div className="space-y-6">
-          <div className="bg-slate-900/90 rounded-2xl p-6 border border-slate-800/90 shadow-xl space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400">
-                <CalendarDays className="w-5 h-5" />
-              </div>
+          {/* Header Card matching mockup: "Calendario comercial" */}
+          <div className="bg-slate-900/90 rounded-2xl p-6 border border-slate-800/90 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-black text-white">Agenda Comercial y Calendario de Cortes</h3>
-                <p className="text-xs text-slate-400">Cronograma de importación de semanas, cierres mensuales y fechas clave de auditoría.</p>
+                <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <CalendarDays className="w-4 h-4" />
+                  </span>
+                  Calendario comercial
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                  Promociones, cierres, capacitaciones y eventos. Duplicá un registro para reutilizarlo en otra fecha.
+                </p>
+              </div>
+            </div>
+
+            {/* Filter & Action Toolbar */}
+            <div className="flex flex-wrap items-end justify-between gap-4 pt-4 border-t border-slate-800/80">
+              <div className="flex flex-wrap items-end gap-3.5">
+                {/* Mes selector */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Mes</label>
+                  <MonthPickerPopover
+                    selectedYear={selectedCalendarYear}
+                    selectedMonth={selectedCalendarMonth}
+                    onChange={(y, m) => {
+                      setSelectedCalendarYear(y);
+                      setSelectedCalendarMonth(m);
+                    }}
+                  />
+                </div>
+
+                {/* Quick Agendar button right by the filter toolbar */}
+                {!isGuest && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCalendarModalInitialDate('');
+                      setCalendarModalInitialData(null);
+                      setIsCalendarModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-700 via-rose-800 to-rose-900 hover:from-rose-600 hover:to-rose-800 text-white border border-rose-500/40 text-xs font-bold shadow-md shadow-rose-950/40 transition-all cursor-pointer h-[38px]"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agendar</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Search & Tipo Filters */}
+              <div className="flex flex-wrap items-end gap-3">
+                {/* Search Bar */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Buscar</label>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Buscar actividad o sucursal..."
+                      value={calendarSearch}
+                      onChange={(e) => setCalendarSearch(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/30 w-52 sm:w-60 h-[38px]"
+                    />
+                  </div>
+                </div>
+
+                {/* Tipo Filter */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Tipo</label>
+                  <CustomTipoFilterDropdown
+                    value={calendarFilterTipo}
+                    onChange={setCalendarFilterTipo}
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-900/80 rounded-2xl p-5 border border-slate-800/90 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Cierre Semanal</span>
-                <Clock className="w-4 h-4 text-amber-400" />
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Los datos de <strong>PEYA, Rappi y Mercado Delivery</strong> se consolidan cada <strong>lunes a las 11:00 hs</strong>.
-              </p>
-              <div className="text-[11px] text-slate-500 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                Próximo corte: Lunes siguiente al período activo.
-              </div>
+          {/* Calendar Grid Container */}
+          <div className="bg-slate-900/90 rounded-2xl border border-slate-800/90 shadow-xl overflow-hidden">
+            {/* Days of Week Header: Lun, Mar, Mié, Jue, Vie, Sáb, Dom */}
+            <div className="grid grid-cols-7 border-b border-slate-800 bg-slate-950/80 text-center">
+              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
+                <div key={d} className="py-3 text-xs font-bold uppercase tracking-wider text-slate-400 border-r border-slate-800/60 last:border-r-0">
+                  {d}
+                </div>
+              ))}
             </div>
 
-            <div className="bg-slate-900/80 rounded-2xl p-5 border border-slate-800/90 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Reunión de Supervisión</span>
-                <Flame className="w-4 h-4 text-rose-400" />
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Revisión de tiendas críticas con <strong>Damaris Burgos, Evelyn Cedrón y Tiendas Propias</strong> todos los <strong>martes a las 15:00 hs</strong>.
-              </p>
-              <div className="text-[11px] text-slate-500 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                Temas: Desvíos en cocina y reclamos de clientes.
-              </div>
-            </div>
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 divide-x divide-y divide-slate-800/70 bg-slate-950/40">
+              {calendarCells.map((cell, idx) => {
+                const isToday = cell.isCurrentMonth && 
+                  new Date().getFullYear() === selectedCalendarYear &&
+                  new Date().getMonth() === selectedCalendarMonth &&
+                  new Date().getDate() === cell.dayNum;
 
-            <div className="bg-slate-900/80 rounded-2xl p-5 border border-slate-800/90 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Cierre de Mes</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Descarga de informe acumulado para gerencia y liquidación de costos de incidencias.
-              </p>
-              <div className="text-[11px] text-slate-500 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                Formato: PDF Ejecutivo desde la pestaña Comparar.
-              </div>
+                // Activities for this specific day
+                const dayActs = cell.isCurrentMonth
+                  ? currentMonthActivities.filter((a) => {
+                      if (!a.fecha) return false;
+                      const parts = a.fecha.split('-');
+                      return (
+                        Number(parts[0]) === selectedCalendarYear &&
+                        Number(parts[1]) === (selectedCalendarMonth + 1) &&
+                        Number(parts[2]) === cell.dayNum
+                      );
+                    })
+                  : [];
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (cell.isCurrentMonth && !isGuest) {
+                        const padM = String(selectedCalendarMonth + 1).padStart(2, '0');
+                        const padD = String(cell.dayNum).padStart(2, '0');
+                        setCalendarModalInitialDate(`${selectedCalendarYear}-${padM}-${padD}`);
+                        setCalendarModalInitialData(null);
+                        setIsCalendarModalOpen(true);
+                      }
+                    }}
+                    className={`min-h-[120px] p-2 flex flex-col justify-between transition-colors group relative ${
+                      cell.isCurrentMonth
+                        ? 'bg-slate-900/60 hover:bg-slate-800/50 cursor-pointer'
+                        : 'bg-slate-950/20 text-slate-700 opacity-40 cursor-default pointer-events-none'
+                    }`}
+                  >
+                    {/* Day Number Header */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span
+                        className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded-md ${
+                          isToday
+                            ? 'bg-rose-500 text-white shadow-xs shadow-rose-950/50'
+                            : cell.isCurrentMonth
+                            ? 'text-slate-300'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        {cell.dayNum}
+                      </span>
+
+                      {/* Hover Quick Add indicator */}
+                      {cell.isCurrentMonth && !isGuest && (
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-rose-400 hover:text-rose-300">
+                          <Plus className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Day Activities List */}
+                    <div className="space-y-1.5 flex-1 overflow-y-auto max-h-[140px] pr-0.5">
+                      {dayActs.map((act) => {
+                        const isPromo = act.tipo === 'Promoción';
+                        const isCierre = act.tipo === 'Cierre';
+                        const isCapacitacion = act.tipo === 'Capacitación';
+                        const isEvento = act.tipo === 'Evento';
+                        const isReunion = act.tipo === 'Reunión';
+
+                        const colorClasses = isPromo
+                          ? 'bg-purple-950/80 border-purple-500/40 text-purple-200 hover:border-purple-400'
+                          : isCierre
+                          ? 'bg-amber-950/80 border-amber-500/40 text-amber-200 hover:border-amber-400'
+                          : isCapacitacion
+                          ? 'bg-sky-950/80 border-sky-500/40 text-sky-200 hover:border-sky-400'
+                          : isEvento
+                          ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-200 hover:border-emerald-400'
+                          : isReunion
+                          ? 'bg-rose-950/80 border-rose-500/40 text-rose-200 hover:border-rose-400'
+                          : 'bg-slate-800 border-slate-700 text-slate-200 hover:border-slate-500';
+
+                        return (
+                          <div
+                            key={act.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicateCalendarActivity(act);
+                            }}
+                            title={`Haz clic para duplicar o editar: ${act.actividad}`}
+                            className={`group/act relative p-1.5 rounded-lg border text-[11px] leading-tight transition-all shadow-xs ${colorClasses}`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold truncate">{act.actividad}</span>
+                              {act.hora && (
+                                <span className="text-[10px] font-mono opacity-80 shrink-0 flex items-center gap-0.5">
+                                  <Clock className="w-2.5 h-2.5 inline" />
+                                  {act.hora}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 mt-1 text-[10px] opacity-80 truncate">
+                              {act.sucursal && act.sucursal !== 'Todas las sucursales' && (
+                                <span className="truncate">{act.sucursal}</span>
+                              )}
+                              {act.app && act.app !== 'Todas las apps' && (
+                                <span className="text-[9px] px-1 py-0.2 rounded bg-black/40 font-semibold shrink-0">
+                                  {act.app}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Floating hover actions: Duplicar & Eliminar */}
+                            {!isGuest && (
+                              <div className="absolute top-1 right-1 hidden group-hover/act:flex items-center gap-1 bg-slate-950/90 rounded-md p-0.5 border border-slate-700 shadow-md z-10">
+                                <button
+                                  type="button"
+                                  title="Duplicar actividad"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDuplicateCalendarActivity(act);
+                                  }}
+                                  className="p-0.5 hover:text-amber-300 text-slate-400 transition-colors"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Eliminar actividad"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCalendarActivity(act.id);
+                                  }}
+                                  className="p-0.5 hover:text-rose-400 text-slate-400 transition-colors"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* Under-Calendar Message: Exact matching mockup */}
+          {currentMonthActivities.length === 0 ? (
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 font-medium">
+              No hay actividades en este mes para los filtros elegidos.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Actividades registradas en el mes ({currentMonthActivities.length})
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Haz clic en "Duplicar" para reutilizar una actividad en otra fecha
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {currentMonthActivities.map((act) => {
+                  const isPromo = act.tipo === 'Promoción';
+                  const isCierre = act.tipo === 'Cierre';
+                  const isCapacitacion = act.tipo === 'Capacitación';
+                  const isEvento = act.tipo === 'Evento';
+                  const isReunion = act.tipo === 'Reunión';
+
+                  const badgeColor = isPromo ? 'bg-purple-500/20 text-purple-300 border-purple-500/40' :
+                    isCierre ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                    isCapacitacion ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' :
+                    isEvento ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                    isReunion ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
+                    'bg-slate-800 text-slate-300 border-slate-700';
+
+                  return (
+                    <div
+                      key={act.id}
+                      className="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 hover:border-slate-700 transition-all space-y-2.5 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${badgeColor}`}>
+                              {act.tipo}
+                            </span>
+                            {act.hora && (
+                              <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-500" />
+                                {act.hora} hs
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-bold text-white leading-snug">
+                            {act.actividad}
+                          </h4>
+                        </div>
+
+                        {!isGuest && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicateCalendarActivity(act)}
+                              title="Duplicar actividad"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCalendarActivity(act.id)}
+                              title="Eliminar actividad"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-500" />
+                          {act.fecha ? act.fecha.split('-').reverse().join('/') : '-'}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 flex items-center gap-1">
+                          <Store className="w-3 h-3 text-slate-500" />
+                          {act.sucursal}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 flex items-center gap-1">
+                          <Smartphone className="w-3 h-3 text-slate-500" />
+                          {act.app}
+                        </span>
+                      </div>
+
+                      {act.observaciones && (
+                        <p className="text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed">
+                          {act.observaciones}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1227,6 +1924,19 @@ export function CentralOperativaView({
         isOpen={isIncidentModalOpen}
         onClose={() => setIsIncidentModalOpen(false)}
         onSaveIncident={handleSaveIncident}
+        stores={allStores.length > 0 ? allStores : stores.map((s) => (typeof s === 'string' ? s : s.name))}
+      />
+
+      {/* Modal: Agendar Actividad */}
+      <ScheduleActivityModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => {
+          setIsCalendarModalOpen(false);
+          setCalendarModalInitialData(null);
+        }}
+        onSaveActivity={handleSaveCalendarActivity}
+        initialDate={calendarModalInitialDate}
+        initialData={calendarModalInitialData}
         stores={allStores.length > 0 ? allStores : stores.map((s) => (typeof s === 'string' ? s : s.name))}
       />
     </div>
