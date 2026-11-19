@@ -245,6 +245,142 @@ function CustomTipoFilterDropdown({ value, onChange }) {
   );
 }
 
+/**
+ * Generic Custom Styled Select Dropdown (Dark glassmorphic)
+ */
+function CustomStyledSelect({
+  label,
+  value,
+  onChange,
+  options = [],
+  icon: Icon,
+  rightIcon: RightIcon,
+  placeholder = 'Seleccionar...',
+  searchable = false,
+  minWidth = 'min-w-[130px]'
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const normalizedOptions = useMemo(() => {
+    return options.map((opt) => {
+      if (typeof opt === 'string') {
+        return { value: opt, label: opt };
+      }
+      return opt;
+    });
+  }, [options]);
+
+  const filteredOptions = searchable && search.trim()
+    ? normalizedOptions.filter((opt) =>
+        opt.label.toLowerCase().includes(search.toLowerCase()) ||
+        String(opt.value).toLowerCase().includes(search.toLowerCase())
+      )
+    : normalizedOptions;
+
+  const selectedOpt = normalizedOptions.find((o) => o.value === value) || { value, label: value || placeholder };
+
+  return (
+    <div className={`relative flex flex-col gap-1.5 ${isOpen ? 'z-50' : 'z-10'}`} ref={containerRef}>
+      {label && (
+        <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+          {label}
+        </label>
+      )}
+
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setSearch('');
+        }}
+        className={`flex items-center justify-between gap-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30 cursor-pointer h-[38px] ${minWidth} transition-all`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          {Icon && <Icon className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+          {selectedOpt.dotColor && (
+            <span className={`w-2 h-2 rounded-full shrink-0 ${selectedOpt.dotColor}`} />
+          )}
+          <span className="truncate">{selectedOpt.label}</span>
+        </div>
+        {RightIcon ? (
+          <RightIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        ) : (
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1.5 min-w-full max-h-64 overflow-hidden rounded-xl bg-slate-900 border border-slate-700/90 shadow-2xl z-50 backdrop-blur-xl flex flex-col animate-in fade-in zoom-in-95 duration-150">
+          {searchable && (
+            <div className="p-2 border-b border-slate-800 bg-slate-950/80">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar..."
+                  autoFocus
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-y-auto no-scrollbar p-1.5 space-y-0.5 max-h-56">
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-center text-xs text-slate-500">
+                No se encontraron opciones
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = opt.value === value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer text-left whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-rose-950/70 text-rose-200 border border-rose-500/40 font-bold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {opt.dotColor && (
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dotColor}`} />
+                      )}
+                      <span className="truncate">{opt.label}</span>
+                    </div>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const INITIAL_CALENDAR_ACTIVITIES = [
   {
     id: 'act_seed_1',
@@ -795,26 +931,30 @@ export function CentralOperativaView({
         </div>
 
         {/* Action Buttons Top Right */}
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onExportPDF}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700/80 bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-bold shadow-sm transition-all duration-150 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5 text-amber-400" />
-            <span>Guardar como PDF</span>
-          </button>
-          {!isGuest && activeTab !== 'calendario' && (
-            <button
-              onClick={activeTab === 'incidencias' ? () => setIsIncidentModalOpen(true) : onOpenImport}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-700 via-rose-800 to-rose-900 hover:from-rose-600 hover:to-rose-800 text-white border border-rose-500/40 text-xs font-bold shadow-md shadow-rose-950/40 transition-all duration-150 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>
-                {activeTab === 'incidencias' ? 'Registrar incidencia' : 'Cargar indicadores'}
-              </span>
-            </button>
-          )}
-        </div>
+        {((activeTab !== 'comparar' && activeTab !== 'textos') || (!isGuest && (activeTab === 'indicadores' || activeTab === 'incidencias'))) && (
+          <div className="flex items-center gap-2.5">
+            {activeTab !== 'comparar' && activeTab !== 'textos' && (
+              <button
+                onClick={onExportPDF}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700/80 bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-bold shadow-sm transition-all duration-150 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>Guardar como PDF</span>
+              </button>
+            )}
+            {!isGuest && (activeTab === 'indicadores' || activeTab === 'incidencias') && (
+              <button
+                onClick={activeTab === 'incidencias' ? () => setIsIncidentModalOpen(true) : onOpenImport}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-700 via-rose-800 to-rose-900 hover:from-rose-600 hover:to-rose-800 text-white border border-rose-500/40 text-xs font-bold shadow-md shadow-rose-950/40 transition-all duration-150 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>
+                  {activeTab === 'incidencias' ? 'Registrar incidencia' : 'Cargar indicadores'}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Navigation Pills Bar */}
@@ -848,75 +988,56 @@ export function CentralOperativaView({
       {activeTab === 'indicadores' && (
         <div className="space-y-6">
           {/* Filter Toolbar Bar */}
-          <div className="bg-slate-900/95 rounded-2xl p-4.5 border border-slate-800/90 shadow-xl flex flex-wrap items-end justify-between gap-4">
+          <div className="bg-slate-900/95 rounded-2xl p-4.5 border border-slate-800/90 shadow-xl flex flex-wrap items-end justify-between gap-4 relative z-30">
             <div className="flex flex-wrap items-center gap-3.5">
               {/* Vista */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Vista</label>
-                <div className="relative">
-                  <select
-                    value={vistaType}
-                    onChange={(e) => setVistaType(e.target.value)}
-                    className="appearance-none bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 pr-8 text-xs font-bold text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30 cursor-pointer min-w-[110px]"
-                  >
-                    <option value="semanal">Semanal</option>
-                    <option value="mensual">Mensual</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
+              <CustomStyledSelect
+                label="Vista"
+                value={vistaType}
+                onChange={setVistaType}
+                options={[
+                  { value: 'semanal', label: 'Semanal' },
+                  { value: 'mensual', label: 'Mensual' }
+                ]}
+                minWidth="min-w-[120px]"
+              />
 
               {/* Semana de referencia */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Semana de referencia</label>
-                <div className="relative">
-                  <select
-                    value={selectedPeriod}
-                    onChange={(e) => onPeriodChange(e.target.value)}
-                    className="appearance-none bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 pr-9 text-xs font-bold text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30 cursor-pointer min-w-[220px]"
-                  >
-                    {availablePeriods.map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                  <Calendar className="w-3.5 h-3.5 text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
+              <CustomStyledSelect
+                label="Semana de referencia"
+                value={selectedPeriod}
+                onChange={onPeriodChange}
+                options={availablePeriods.map((p) => ({ value: p, label: p }))}
+                rightIcon={Calendar}
+                minWidth="min-w-[210px]"
+              />
 
               {/* Zona */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Zona</label>
-                <div className="relative">
-                  <select
-                    value={filterZona}
-                    onChange={(e) => setFilterZona(e.target.value)}
-                    className="appearance-none bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 pr-8 text-xs font-bold text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30 cursor-pointer min-w-[130px]"
-                  >
-                    <option value="ALL">Todas las zonas</option>
-                    <option value="CABA">CABA</option>
-                    <option value="GBA">GBA</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
+              <CustomStyledSelect
+                label="Zona"
+                value={filterZona}
+                onChange={setFilterZona}
+                options={[
+                  { value: 'ALL', label: 'Todas las zonas', dotColor: 'bg-slate-400' },
+                  { value: 'CABA', label: 'CABA', dotColor: 'bg-sky-400' },
+                  { value: 'GBA', label: 'GBA', dotColor: 'bg-emerald-400' }
+                ]}
+                minWidth="min-w-[145px]"
+              />
 
-              {/* App filter */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Canal / App</label>
-                <div className="relative">
-                  <select
-                    value={filterApp}
-                    onChange={(e) => setFilterApp(e.target.value)}
-                    className="appearance-none bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 pr-8 text-xs font-bold text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30 cursor-pointer min-w-[140px]"
-                  >
-                    <option value="ALL">Todas las apps</option>
-                    <option value="PEYA">PedidosYa</option>
-                    <option value="Rappi">Rappi</option>
-                    <option value="Mercado Delivery">Mercado Delivery</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
+              {/* Canal / App */}
+              <CustomStyledSelect
+                label="Canal / App"
+                value={filterApp}
+                onChange={setFilterApp}
+                options={[
+                  { value: 'ALL', label: 'Todas las apps', dotColor: 'bg-slate-400' },
+                  { value: 'PEYA', label: 'PedidosYa', dotColor: 'bg-rose-500' },
+                  { value: 'Rappi', label: 'Rappi', dotColor: 'bg-orange-500' },
+                  { value: 'Mercado Delivery', label: 'Mercado Delivery', dotColor: 'bg-amber-400' }
+                ]}
+                minWidth="min-w-[160px]"
+              />
             </div>
 
             {/* Quick Search & Only Deviations Filter */}
@@ -947,7 +1068,7 @@ export function CentralOperativaView({
           </div>
 
           {/* 4 Summary Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
             <div className="bg-slate-900/90 rounded-2xl p-5 border border-slate-800/90 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sucursales</span>
@@ -1442,6 +1563,34 @@ export function CentralOperativaView({
 
             {/* Filter & Action Toolbar */}
             <div className="flex flex-wrap items-end justify-between gap-4 pt-4 border-t border-slate-800/80">
+              {/* Left Side: Search & Tipo Filters */}
+              <div className="flex flex-wrap items-end gap-3">
+                {/* Search Bar */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Buscar</label>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Buscar actividad o sucursal..."
+                      value={calendarSearch}
+                      onChange={(e) => setCalendarSearch(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/30 w-52 sm:w-60 h-[38px]"
+                    />
+                  </div>
+                </div>
+
+                {/* Tipo Filter */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Tipo</label>
+                  <CustomTipoFilterDropdown
+                    value={calendarFilterTipo}
+                    onChange={setCalendarFilterTipo}
+                  />
+                </div>
+              </div>
+
+              {/* Right Side: Mes selector & Agendar button */}
               <div className="flex flex-wrap items-end gap-3.5">
                 {/* Mes selector */}
                 <div className="flex flex-col gap-1.5">
@@ -1471,33 +1620,6 @@ export function CentralOperativaView({
                     <span>Agendar</span>
                   </button>
                 )}
-              </div>
-
-              {/* Search & Tipo Filters */}
-              <div className="flex flex-wrap items-end gap-3">
-                {/* Search Bar */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Buscar</label>
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Buscar actividad o sucursal..."
-                      value={calendarSearch}
-                      onChange={(e) => setCalendarSearch(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/30 w-52 sm:w-60 h-[38px]"
-                    />
-                  </div>
-                </div>
-
-                {/* Tipo Filter */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Tipo</label>
-                  <CustomTipoFilterDropdown
-                    value={calendarFilterTipo}
-                    onChange={setCalendarFilterTipo}
-                  />
-                </div>
               </div>
             </div>
           </div>

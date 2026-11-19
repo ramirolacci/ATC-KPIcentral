@@ -1,10 +1,146 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   TrendingUp, TrendingDown, ArrowRight, Store, Calendar,
   CheckCircle2, AlertTriangle, AlertCircle, ChevronDown, Award, Search, Filter, Download
 } from 'lucide-react';
 import { fmtInt, fmtCurrency, fmtPct, getMetricStatus } from '../utils';
 import { exportStoreComparisonPanelPDF } from '../utils/pdfExport';
+
+/**
+ * Custom Styled Filter Dropdown for Store Comparison Panel (Dark glassmorphic)
+ */
+function ComparisonCustomDropdown({
+  label,
+  labelColor = 'text-slate-400',
+  icon: Icon,
+  value,
+  onChange,
+  options = [],
+  searchable = false,
+  placeholder = 'Seleccionar...',
+  accentColor = 'slate'
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const normalizedOptions = useMemo(() => {
+    return options.map((opt) => {
+      if (typeof opt === 'string') {
+        return { value: opt, label: opt };
+      }
+      return opt;
+    });
+  }, [options]);
+
+  const filteredOptions = searchable && search.trim()
+    ? normalizedOptions.filter((opt) =>
+        opt.label.toLowerCase().includes(search.toLowerCase()) ||
+        opt.value.toLowerCase().includes(search.toLowerCase())
+      )
+    : normalizedOptions;
+
+  const selectedOpt = normalizedOptions.find((o) => o.value === value) || { value, label: value || placeholder };
+
+  const borderClass = accentColor === 'amber'
+    ? 'border-amber-500/40 hover:border-amber-500 focus:border-amber-500'
+    : 'border-slate-800 hover:border-slate-700 focus:border-amber-500';
+
+  return (
+    <div className={`relative space-y-1.5 ${isOpen ? 'z-50' : 'z-10'}`} ref={containerRef}>
+      {label && (
+        <label className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${labelColor}`}>
+          {Icon && <Icon className="w-3.5 h-3.5" />}
+          {label}
+        </label>
+      )}
+
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setSearch('');
+        }}
+        className={`w-full flex items-center justify-between gap-2.5 bg-slate-950/90 text-white text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2.5 transition-all cursor-pointer border shadow-xs ${borderClass}`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          {selectedOpt.dotColor && (
+            <span className={`w-2 h-2 rounded-full shrink-0 ${selectedOpt.dotColor}`} />
+          )}
+          <span className="truncate">{selectedOpt.label}</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 max-h-64 overflow-hidden rounded-xl bg-slate-900 border border-slate-700/90 shadow-2xl z-50 backdrop-blur-xl flex flex-col animate-in fade-in zoom-in-95 duration-150">
+          {searchable && (
+            <div className="p-2 border-b border-slate-800 bg-slate-950/80">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar sucursal..."
+                  autoFocus
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-y-auto no-scrollbar p-1.5 space-y-0.5 max-h-56">
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-center text-xs text-slate-500">
+                No se encontraron opciones
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = opt.value === value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left ${
+                      isSelected
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {opt.dotColor && (
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dotColor}`} />
+                      )}
+                      <span className="truncate">{opt.label}</span>
+                    </div>
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function StoreComparisonPanel({
   datasets = {},
@@ -226,7 +362,7 @@ export function StoreComparisonPanel({
   return (
     <div className="space-y-6">
       {/* Header and Period Selectors */}
-      <div className="glass-panel rounded-2xl p-6 border border-amber-500/30 bg-gradient-to-r from-slate-900/95 via-amber-950/20 to-slate-900/95 shadow-2xl space-y-5">
+      <div className="relative z-30 glass-panel rounded-2xl p-6 border border-amber-500/30 bg-gradient-to-r from-slate-900/95 via-amber-950/20 to-slate-900/95 shadow-2xl space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider">
@@ -258,86 +394,60 @@ export function StoreComparisonPanel({
         </div>
 
         {/* Period Selectors Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-800/80">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-800/80 relative z-20">
           {/* Period A */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-500" />
-              Período Base (Mes Anterior)
-            </label>
-            <select
-              value={periodA}
-              onChange={(e) => setPeriodA(e.target.value)}
-              className="w-full bg-slate-950/90 border border-slate-800 hover:border-slate-700 text-white text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
-            >
-              {availablePeriods.map((p) => (
-                <option key={`a-${p}`} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ComparisonCustomDropdown
+            label="Período Base (Mes Anterior)"
+            icon={() => <span className="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0" />}
+            value={periodA}
+            onChange={setPeriodA}
+            options={availablePeriods.map((p) => ({ value: p, label: p }))}
+            accentColor="slate"
+          />
 
           {/* Period B */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              Período a Comparar (Mes Actual)
-            </label>
-            <select
-              value={periodB}
-              onChange={(e) => setPeriodB(e.target.value)}
-              className="w-full bg-slate-950/90 border border-amber-500/40 hover:border-amber-500 text-white text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-colors cursor-pointer"
-            >
-              {availablePeriods.map((p) => (
-                <option key={`b-${p}`} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ComparisonCustomDropdown
+            label="Período a Comparar (Mes Actual)"
+            labelColor="text-amber-400"
+            icon={() => <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />}
+            value={periodB}
+            onChange={setPeriodB}
+            options={availablePeriods.map((p) => ({ value: p, label: p }))}
+            accentColor="amber"
+          />
 
           {/* Filter by Specific Store */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Store className="w-3.5 h-3.5 text-slate-400" />
-              Filtrar Sucursal
-            </label>
-            <select
-              value={selectedStore}
-              onChange={(e) => setSelectedStore(e.target.value)}
-              className="w-full bg-slate-950/90 border border-slate-800 hover:border-slate-700 text-white text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
-            >
-              <option value="ALL">Todas las sucursales ({allStoreNames.length})</option>
-              {allStoreNames.map((st) => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ComparisonCustomDropdown
+            label="Filtrar Sucursal"
+            icon={Store}
+            value={selectedStore}
+            onChange={setSelectedStore}
+            options={[
+              { value: 'ALL', label: `Todas las sucursales (${allStoreNames.length})` },
+              ...allStoreNames.map((st) => ({ value: st, label: st }))
+            ]}
+            searchable={true}
+            accentColor="slate"
+          />
 
           {/* Filter by Canal */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Canal
-            </label>
-            <select
-              value={selectedCanal}
-              onChange={(e) => setSelectedCanal(e.target.value)}
-              className="w-full bg-slate-950/90 border border-slate-800 hover:border-slate-700 text-white text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
-            >
-              <option value="ALL">Todos los canales</option>
-              <option value="PEYA">PedidosYa (PEYA)</option>
-              <option value="Rappi">Rappi</option>
-              <option value="Mercado Delivery">Mercado Delivery</option>
-            </select>
-          </div>
+          <ComparisonCustomDropdown
+            label="Canal"
+            value={selectedCanal}
+            onChange={setSelectedCanal}
+            options={[
+              { value: 'ALL', label: 'Todos los canales', dotColor: 'bg-slate-400' },
+              { value: 'PEYA', label: 'PedidosYa (PEYA)', dotColor: 'bg-rose-500' },
+              { value: 'Rappi', label: 'Rappi', dotColor: 'bg-orange-500' },
+              { value: 'Mercado Delivery', label: 'Mercado Delivery', dotColor: 'bg-emerald-400' }
+            ]}
+            accentColor="slate"
+          />
         </div>
       </div>
 
       {/* Aggregate Comparison Cards (PedidosYa Inspired Look) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
         {/* Metric 1: Total Orders */}
         <div className="glass-panel rounded-2xl p-4 border border-slate-800/90 bg-slate-900/80 shadow-lg space-y-2">
           <span className="text-[11px] font-bold uppercase text-slate-400">Volumen de Pedidos</span>
@@ -473,32 +583,32 @@ export function StoreComparisonPanel({
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-800/90 bg-slate-900/90 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                <th className="p-3.5">Sucursal</th>
-                <th className="p-3.5">Canal</th>
-                <th className="p-3.5">Supervisora</th>
+              <tr className="border-b border-slate-800/90 bg-slate-900/90 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                <th className="p-3.5 whitespace-nowrap">Sucursal</th>
+                <th className="p-3.5 whitespace-nowrap">Canal</th>
+                <th className="p-3.5 whitespace-nowrap">Supervisora</th>
                 
                 {/* Period A Header */}
-                <th className="p-3.5 text-right border-l border-slate-800 text-slate-400">
+                <th className="p-3.5 text-right border-l border-slate-800 text-slate-400 whitespace-nowrap">
                   {periodA} (Órdenes)
                 </th>
-                <th className="p-3.5 text-right text-slate-400">
+                <th className="p-3.5 text-right text-slate-400 whitespace-nowrap">
                   {periodA} (Dem %)
                 </th>
 
                 {/* Period B Header */}
-                <th className="p-3.5 text-right border-l border-slate-800 text-amber-300">
+                <th className="p-3.5 text-right border-l border-slate-800 text-amber-300 whitespace-nowrap">
                   {periodB} (Órdenes)
                 </th>
-                <th className="p-3.5 text-right text-amber-300">
+                <th className="p-3.5 text-right text-amber-300 whitespace-nowrap">
                   {periodB} (Dem %)
                 </th>
 
                 {/* Deltas */}
-                <th className="p-3.5 text-right border-l border-slate-800">Evolución Pedidos</th>
-                <th className="p-3.5 text-right">Variación Demora</th>
-                <th className="p-3.5 text-right">Variación Reclamos</th>
-                <th className="p-3.5 text-center">Estado</th>
+                <th className="p-3.5 text-right border-l border-slate-800 whitespace-nowrap">Evolución Pedidos</th>
+                <th className="p-3.5 text-right whitespace-nowrap">Variación Demora</th>
+                <th className="p-3.5 text-right whitespace-nowrap">Variación Reclamos</th>
+                <th className="p-3.5 text-center whitespace-nowrap">Estado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50 font-mono-numbers">
@@ -511,12 +621,12 @@ export function StoreComparisonPanel({
               ) : (
                 storeComparisons.map((sc) => {
                   return (
-                    <tr key={sc.key} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3.5 font-sans font-bold text-white">
+                    <tr key={sc.key} className="hover:bg-slate-800/30 transition-colors whitespace-nowrap">
+                      <td className="p-3.5 font-sans font-bold text-white whitespace-nowrap">
                         {sc.tienda}
                       </td>
-                      <td className="p-3.5">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      <td className="p-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shrink-0 ${
                           sc.canal === 'PEYA' || sc.canal === 'PedidosYa'
                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                             : sc.canal === 'Rappi'
@@ -526,28 +636,28 @@ export function StoreComparisonPanel({
                           {sc.canal}
                         </span>
                       </td>
-                      <td className="p-3.5 font-sans text-slate-400">
+                      <td className="p-3.5 font-sans text-slate-400 whitespace-nowrap">
                         {sc.supName}
                       </td>
 
                       {/* Period A Values */}
-                      <td className="p-3.5 text-right border-l border-slate-800 text-slate-400">
+                      <td className="p-3.5 text-right border-l border-slate-800 text-slate-400 whitespace-nowrap">
                         {fmtInt(sc.rA.confirmadas)}
                       </td>
-                      <td className="p-3.5 text-right text-slate-400">
+                      <td className="p-3.5 text-right text-slate-400 whitespace-nowrap">
                         {fmtPct(sc.rA.demorasPct)}
                       </td>
 
                       {/* Period B Values */}
-                      <td className="p-3.5 text-right border-l border-slate-800 font-bold text-white">
+                      <td className="p-3.5 text-right border-l border-slate-800 font-bold text-white whitespace-nowrap">
                         {fmtInt(sc.rB.confirmadas)}
                       </td>
-                      <td className="p-3.5 text-right font-bold text-white">
+                      <td className="p-3.5 text-right font-bold text-white whitespace-nowrap">
                         {fmtPct(sc.rB.demorasPct)}
                       </td>
 
                       {/* Delta Orders */}
-                      <td className="p-3.5 text-right border-l border-slate-800">
+                      <td className="p-3.5 text-right border-l border-slate-800 whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5 font-bold">
                           <span className={sc.ordersDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                             {sc.ordersDiff > 0 ? `+${fmtInt(sc.ordersDiff)}` : fmtInt(sc.ordersDiff)}
@@ -561,7 +671,7 @@ export function StoreComparisonPanel({
                       </td>
 
                       {/* Delta Demoras */}
-                      <td className="p-3.5 text-right">
+                      <td className="p-3.5 text-right whitespace-nowrap">
                         <span className={`font-semibold ${
                           sc.demDiff <= 0 ? 'text-emerald-400' : 'text-rose-400'
                         }`}>
@@ -570,7 +680,7 @@ export function StoreComparisonPanel({
                       </td>
 
                       {/* Delta Reclamos */}
-                      <td className="p-3.5 text-right">
+                      <td className="p-3.5 text-right whitespace-nowrap">
                         <span className={`font-semibold ${
                           sc.recDiff <= 0 ? 'text-emerald-400' : 'text-rose-400'
                         }`}>
@@ -579,7 +689,7 @@ export function StoreComparisonPanel({
                       </td>
 
                       {/* Status Tag */}
-                      <td className="p-3.5 text-center font-sans">
+                      <td className="p-3.5 text-center font-sans whitespace-nowrap">
                         {sc.isImproved ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                             <TrendingUp className="w-3 h-3" />
